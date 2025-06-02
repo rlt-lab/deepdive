@@ -110,20 +110,35 @@
 - Support for both arrow keys and WASD input
 - Immediate response to rapid key presses
 
-## Phase 5: Camera System (Days 11-12)
+## Phase 5: Camera System (Days 11-12) ✅
 
-### Step 5.1: Basic Camera Following
-- [ ] Implement camera that follows player position
-- [ ] Add smooth camera interpolation
-- [ ] Test camera movement with player
+### Step 5.1: Basic Camera Following ✅
+- [x] Implement camera that follows player position
+- [x] Add smooth camera interpolation
+- [x] Test camera movement with player
 
-### Step 5.2: Camera Constraints and Zoom
-- [ ] Add map boundary constraints for camera
-- [ ] Implement zoom levels (full map vs centered)
-- [ ] Add smooth zoom transitions
-- [ ] Test camera behavior at map edges
+### Step 5.2: Camera Constraints and Zoom ✅
+- [x] Add map boundary constraints for camera
+- [x] Implement zoom levels (full map vs centered)
+- [x] Add smooth zoom transitions
+- [x] Test camera behavior at map edges
 
-**Milestone 5: Camera follows player smoothly with proper constraints**
+**Milestone 5: Camera follows player smoothly with proper constraints** ✅
+
+**Completed Features:**
+- Camera entity with CameraFollow component for tracking
+- Smooth camera interpolation with configurable lerp_speed (2.0)
+- Zoom system with +/- keys and R for reset (0.5x to 3.0x range)
+- Smart boundary constraints (enabled for maps > 15x15)
+- Debug system with F1 (camera info) and F2 (controls help)
+- Proper system ordering and entity management
+
+**Phase 5 Post-Completion Fix:**
+- [x] Fixed tile rendering to use correct sprites from tiles.png
+- [x] Implemented sprite database system with proper texture index calculation
+- [x] Added support for wall_top/wall_side logic based on tiles below
+- [x] Added random floor selection from multiple floor sprite types
+- [x] Verified sprite sheet dimensions (17x26 tiles) and proper indexing
 
 ## Phase 6: Advanced Map Generation (Days 13-15)
 

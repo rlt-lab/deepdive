@@ -5,6 +5,7 @@ use std::collections::HashSet;
 
 use crate::assets::{GameAssets, SpriteDatabase, sprite_position_to_index};
 use crate::components::{TileType, MapTile, SavedMapData, CurrentLevel, LevelMaps};
+use crate::fov::{TileVisibilityState, TileVisibility};
 
 #[derive(Resource)]
 pub struct GameMap {
@@ -361,6 +362,7 @@ pub fn spawn_map(
                         ..Default::default()
                     },
                     MapTile { tile_type },
+                    TileVisibilityState { visibility: TileVisibility::Unseen },
                 ))
                 .id();
             tile_storage.set(&tile_pos, tile_entity);

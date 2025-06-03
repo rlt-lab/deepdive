@@ -1622,12 +1622,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "coord_2d"
-version = "0.3.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f1020a2ed8bf43fc850b01db7570c0e4194d3e3d8d806a5f1857d2ab15feec57"
-
-[[package]]
 name = "core-foundation"
 version = "0.9.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1828,7 +1822,6 @@ dependencies = [
  "rand 0.9.1",
  "ron 0.10.1",
  "serde",
- "shadowcast",
 ]
 
 [[package]]
@@ -1862,15 +1855,6 @@ dependencies = [
  "quote",
  "syn",
  "unicode-xid",
-]
-
-[[package]]
-name = "direction"
-version = "0.18.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3c56672976b806b6fe8e41998c6d0503cd02479c6059c47451ce8addc7871271"
-dependencies = [
- "coord_2d",
 ]
 
 [[package]]
@@ -3872,17 +3856,6 @@ dependencies = [
  "memchr",
  "ryu",
  "serde",
-]
-
-[[package]]
-name = "shadowcast"
-version = "0.8.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4418a6cfbc94fff774e1d58649246b54eab9d4d762321a8433fb270cc5c072d5"
-dependencies = [
- "coord_2d",
- "direction",
- "num-traits",
 ]
 
 [[package]]

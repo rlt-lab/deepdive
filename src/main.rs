@@ -12,6 +12,7 @@ mod map;
 mod player;
 mod camera;
 mod level_manager;
+mod fov;
 
 use assets::{GameAssets, SpriteDatabase};
 use states::GameState;
@@ -19,6 +20,7 @@ use map::spawn_map;
 use player::*;
 use camera::*;
 use level_manager::LevelManagerPlugin;
+use fov::FovPlugin;
 
 fn main() {
     App::new()
@@ -33,7 +35,9 @@ fn main() {
         }).set(ImagePlugin::default_nearest()))
         .add_plugins(TilemapPlugin)
         .add_plugins(LevelManagerPlugin)
+        .add_plugins(FovPlugin)
         .init_state::<GameState>()
+        .insert_resource(ClearColor(Color::BLACK)) // Set background to black
         .insert_resource(SpriteDatabase::new()) // Add sprite database resource
         .add_loading_state(
             LoadingState::new(GameState::AssetLoading)

@@ -6,6 +6,7 @@ use crate::components::*;
 use crate::map::{GameMap, get_tile_texture_index};
 use crate::player::{LevelChangeEvent, RegenerateMapEvent, SpawnPosition};
 use crate::states::GameState;
+use crate::fov::{FovSettings, TileVisibilityState, TileVisibility};
 
 pub struct LevelManagerPlugin;
 
@@ -37,6 +38,8 @@ pub fn handle_level_transitions(
     sprite_db: Res<SpriteDatabase>,
     mut player_query: Query<&mut Player>,
     tilemap_query: Query<Entity, With<TileStorage>>,
+    tile_visibility_query: Query<Entity, With<TileVisibilityState>>,
+    mut fov_settings: ResMut<FovSettings>,
 ) {
     for event in level_change_events.read() {
         println!("Transitioning to level {}", event.new_level);
@@ -44,8 +47,13 @@ pub fn handle_level_transitions(
         // Update current level
         current_level.level = event.new_level;
         
-        // Clear existing tilemap
+        // Clear existing tilemap and all tile entities recursively
         for entity in tilemap_query.iter() {
+            commands.entity(entity).despawn();
+        }
+        
+        // Also clear any remaining tile visibility entities
+        for entity in tile_visibility_query.iter() {
             commands.entity(entity).despawn();
         }
         
@@ -106,6 +114,7 @@ pub fn handle_level_transitions(
                             ..Default::default()
                         },
                         MapTile { tile_type },
+                        TileVisibilityState { visibility: TileVisibility::Unseen },
                     ))
                     .id();
                 tile_storage.set(&tile_pos, tile_entity);
@@ -128,6 +137,9 @@ pub fn handle_level_transitions(
         });
         
         commands.insert_resource(map);
+        
+        // Trigger FOV recalculation for new level
+        fov_settings.needs_recalculation = true;
     }
 }
 
@@ -140,12 +152,19 @@ pub fn handle_map_regeneration(
     sprite_db: Res<SpriteDatabase>,
     mut player_query: Query<&mut Player>,
     tilemap_query: Query<Entity, With<TileStorage>>,
+    tile_visibility_query: Query<Entity, With<TileVisibilityState>>,
+    mut fov_settings: ResMut<FovSettings>,
 ) {
     for _event in regenerate_events.read() {
         println!("Regenerating level {}", current_level.level);
         
-        // Clear existing tilemap
+        // Clear existing tilemap and all tile entities
         for entity in tilemap_query.iter() {
+            commands.entity(entity).despawn();
+        }
+        
+        // Also clear any remaining tile visibility entities
+        for entity in tile_visibility_query.iter() {
             commands.entity(entity).despawn();
         }
         
@@ -221,6 +240,7 @@ pub fn handle_map_regeneration(
                             ..Default::default()
                         },
                         MapTile { tile_type },
+                        TileVisibilityState { visibility: TileVisibility::Unseen },
                     ))
                     .id();
                 tile_storage.set(&tile_pos, tile_entity);
@@ -243,5 +263,8 @@ pub fn handle_map_regeneration(
         });
         
         commands.insert_resource(map);
+        
+        // Trigger FOV recalculation for regenerated map
+        fov_settings.needs_recalculation = true;
     }
 }

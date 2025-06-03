@@ -1,6 +1,7 @@
 use bevy::prelude::*;
+use serde::{Deserialize, Serialize};
 
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
 pub enum TileType {
     Floor,
     Wall,
@@ -52,3 +53,28 @@ pub struct GameCamera;
 
 #[derive(Resource)]
 pub struct PlayerEntity(pub Entity);
+
+#[derive(Resource)]
+pub struct CurrentLevel {
+    pub level: u32,
+}
+
+#[derive(Resource, Default)]
+pub struct LevelMaps {
+    pub maps: std::collections::HashMap<u32, SavedMapData>,
+}
+
+#[derive(Clone, Serialize, Deserialize)]
+pub struct SavedMapData {
+    pub width: u32,
+    pub height: u32,
+    pub tiles: Vec<Vec<TileType>>,
+    pub stair_up_pos: Option<(u32, u32)>,
+    pub stair_down_pos: Option<(u32, u32)>,
+}
+
+#[derive(Clone, Copy, PartialEq)]
+pub enum MapGenerationType {
+    SimpleRoom,
+    DrunkardWalk,
+}

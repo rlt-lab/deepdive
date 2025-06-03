@@ -11,13 +11,14 @@ mod assets;
 mod map;
 mod player;
 mod camera;
+mod level_manager;
 
 use assets::{GameAssets, SpriteDatabase};
 use states::GameState;
-use components::*;
 use map::spawn_map;
 use player::*;
 use camera::*;
+use level_manager::LevelManagerPlugin;
 
 fn main() {
     App::new()
@@ -31,6 +32,7 @@ fn main() {
             ..default()
         }).set(ImagePlugin::default_nearest()))
         .add_plugins(TilemapPlugin)
+        .add_plugins(LevelManagerPlugin)
         .init_state::<GameState>()
         .insert_resource(SpriteDatabase::new()) // Add sprite database resource
         .add_loading_state(
@@ -41,14 +43,16 @@ fn main() {
         .add_systems(Startup, setup_camera)
         .add_systems(OnEnter(GameState::Playing), (
             spawn_map, 
-            spawn_player.before(setup_camera_follow),
-            setup_camera_follow
+            spawn_player.after(spawn_map),
+            setup_camera_follow.after(spawn_player)
         ))
         .add_systems(Update, (
             handle_input, 
-            move_player, 
             animate_movement,
+            move_player.after(animate_movement), // Ensure move_player runs after animation
             handle_continuous_movement,
+            handle_stair_interaction,
+            debug_map_regeneration,
             camera_follow_system,
             camera_zoom_system,
             camera_debug_system

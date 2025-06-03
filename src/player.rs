@@ -7,21 +7,52 @@ use crate::map::GameMap;
 pub fn spawn_player(
     mut commands: Commands,
     assets: Res<GameAssets>,
+    map: Res<GameMap>,
 ) {
-    // Spawn player at grid position (2, 2) - center of the room
-    let grid_x = 2;
-    let grid_y = 2;
+    // Find a suitable spawn position (preferably near center)
+    let center_x = map.width / 2;
+    let center_y = map.height / 2;
     
-    // Convert grid position to world position
-    // With TilemapAnchor::Center, the tilemap is centered at (0,0)
-    // Each tile is 32x32, so tile (0,0) is at (-144, -144) for a 10x10 map
-    // We need to position the player at the center of the tile
-    let world_x = (grid_x as f32 - 4.5) * 32.0; // -4.5 centers us on tiles instead of grid lines
-    let world_y = (grid_y as f32 - 4.5) * 32.0;
+    // Look for a floor tile near the center
+    let mut spawn_pos = (center_x, center_y);
     
-    // Player sprite at position 1,4 from rogues.png (32x32 sprites)
-    let sprite_x = 1.0 * 32.0;
+    // If center is not a floor, search nearby
+    if map.tiles[center_y as usize][center_x as usize] != TileType::Floor {
+        'search: for radius in 1..10 {
+            for dx in -(radius as i32)..=(radius as i32) {
+                for dy in -(radius as i32)..=(radius as i32) {
+                    let x = center_x as i32 + dx;
+                    let y = center_y as i32 + dy;
+                    
+                    if x >= 0 && x < map.width as i32 && y >= 0 && y < map.height as i32 {
+                        let ux = x as u32;
+                        let uy = y as u32;
+                        if map.tiles[uy as usize][ux as usize] == TileType::Floor {
+                            spawn_pos = (ux, uy);
+                            break 'search;
+                        }
+                    }
+                }
+            }
+        }
+    }
+    
+    let grid_x = spawn_pos.0;
+    let grid_y = spawn_pos.1;
+    
+    // Convert grid position to world position with new map centering
+    let world_x = (grid_x as f32 - (map.width as f32 / 2.0 - 0.5)) * 32.0;
+    let world_y = (grid_y as f32 - (map.height as f32 / 2.0 - 0.5)) * 32.0;
+    
+    // Player sprite at position 4,4 from rogues.png (32x32 sprites)
+    // Extract 31x31 pixels from center to avoid sprite bleeding
+    let sprite_x = 4.0 * 32.0;
     let sprite_y = 4.0 * 32.0;
+    
+    // Extract 31x31 from center (add 0.5 pixel offset on each side)
+    let extract_x = sprite_x + 0.5;
+    let extract_y = sprite_y + 0.5;
+    let extract_size = 31.0;
     
     let player_entity = commands.spawn((
         Player { x: grid_x, y: grid_y },
@@ -32,8 +63,10 @@ pub fn spawn_player(
         },
         Sprite {
             image: assets.rogues.clone(),
-            rect: Some(Rect::new(sprite_x, sprite_y, sprite_x + 32.0, sprite_y + 32.0)),
+            rect: Some(Rect::new(extract_x, extract_y, extract_x + extract_size, extract_y + extract_size)),
             flip_x: false, // Start facing left (natural sprite direction)
+            // Custom size to stretch 31x31 extracted pixels to 32x32 render size
+            custom_size: Some(Vec2::new(32.0, 32.0)),
             ..default()
         },
         Transform::from_xyz(world_x, world_y, 1.0),
@@ -117,10 +150,10 @@ pub fn handle_input(
             // Check collision with walls and apply movement
             if movement_attempted && map.tiles[new_y as usize][new_x as usize] != TileType::Wall {
                 // Calculate start and end positions for animation
-                let start_world_x = (player.x as f32 - 4.5) * 32.0;
-                let start_world_y = (player.y as f32 - 4.5) * 32.0;
-                let end_world_x = (new_x as f32 - 4.5) * 32.0;
-                let end_world_y = (new_y as f32 - 4.5) * 32.0;
+                let start_world_x = (player.x as f32 - (map.width as f32 / 2.0 - 0.5)) * 32.0;
+                let start_world_y = (player.y as f32 - (map.height as f32 / 2.0 - 0.5)) * 32.0;
+                let end_world_x = (new_x as f32 - (map.width as f32 / 2.0 - 0.5)) * 32.0;
+                let end_world_y = (new_y as f32 - (map.height as f32 / 2.0 - 0.5)) * 32.0;
                 
                 // Update player grid position
                 player.x = new_x;
@@ -148,15 +181,18 @@ pub fn handle_input(
 
 pub fn move_player(
     mut player_query: Query<(&Player, &mut Transform), (Changed<Player>, Without<MovementAnimation>)>,
+    map: Res<GameMap>,
 ) {
     // Only update transform for players without active movement animation
+    // This system should only run when there's no animation active
     for (player, mut transform) in player_query.iter_mut() {
         // Convert grid position to world position
-        let world_x = (player.x as f32 - 4.5) * 32.0; // -4.5 centers us on tiles
-        let world_y = (player.y as f32 - 4.5) * 32.0;
+        let world_x = (player.x as f32 - (map.width as f32 / 2.0 - 0.5)) * 32.0;
+        let world_y = (player.y as f32 - (map.height as f32 / 2.0 - 0.5)) * 32.0;
         
         transform.translation.x = world_x;
         transform.translation.y = world_y;
+        transform.translation.z = 1.0; // Ensure consistent Z position
     }
 }
 
@@ -197,4 +233,78 @@ pub fn handle_continuous_movement(
             movement_input.move_timer.tick(time.delta());
         }
     }
+}
+
+pub fn handle_stair_interaction(
+    keyboard_input: Res<ButtonInput<KeyCode>>,
+    player_query: Query<&Player>,
+    map: Res<GameMap>,
+    current_level: Res<CurrentLevel>,
+    mut level_maps: ResMut<LevelMaps>,
+    mut level_change_events: EventWriter<LevelChangeEvent>,
+) {
+    if keyboard_input.just_pressed(KeyCode::KeyE) {
+        if let Ok(player) = player_query.single() {
+            let tile_type = map.tiles[player.y as usize][player.x as usize];
+            
+            match tile_type {
+                TileType::StairUp if current_level.level > 0 => {
+                    println!("Going up to level {}", current_level.level - 1);
+                    // Save current map
+                    level_maps.maps.insert(current_level.level, map.to_saved_data());
+                    // Trigger level change
+                    level_change_events.write(LevelChangeEvent {
+                        new_level: current_level.level - 1,
+                        spawn_position: SpawnPosition::StairDown,
+                    });
+                },
+                TileType::StairDown if current_level.level < 50 => {
+                    println!("Going down to level {}", current_level.level + 1);
+                    // Save current map
+                    level_maps.maps.insert(current_level.level, map.to_saved_data());
+                    // Trigger level change
+                    level_change_events.write(LevelChangeEvent {
+                        new_level: current_level.level + 1,
+                        spawn_position: SpawnPosition::StairUp,
+                    });
+                },
+                TileType::StairUp => {
+                    println!("Cannot go up from the surface!");
+                },
+                TileType::StairDown => {
+                    println!("Cannot go deeper - you've reached the bottom!");
+                },
+                _ => {
+                    println!("No stairs here to use.");
+                }
+            }
+        }
+    }
+}
+
+pub fn debug_map_regeneration(
+    keyboard_input: Res<ButtonInput<KeyCode>>,
+    mut regenerate_events: EventWriter<RegenerateMapEvent>,
+) {
+    if keyboard_input.just_pressed(KeyCode::KeyR) && 
+       (keyboard_input.pressed(KeyCode::ShiftLeft) || keyboard_input.pressed(KeyCode::ShiftRight)) {
+        println!("Regenerating current level map...");
+        regenerate_events.write(RegenerateMapEvent);
+    }
+}
+
+#[derive(Event)]
+pub struct LevelChangeEvent {
+    pub new_level: u32,
+    pub spawn_position: SpawnPosition,
+}
+
+#[derive(Event)]
+pub struct RegenerateMapEvent;
+
+#[derive(Clone, Copy)]
+pub enum SpawnPosition {
+    StairUp,
+    StairDown,
+    Center,
 }

@@ -1,6 +1,9 @@
 use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
 
+use crate::biome::BiomeType;
+use crate::fov::TileVisibility;
+
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
 pub enum TileType {
     Floor,
@@ -57,6 +60,7 @@ pub struct PlayerEntity(pub Entity);
 #[derive(Resource)]
 pub struct CurrentLevel {
     pub level: u32,
+    pub biome: BiomeType, // Add biome field
 }
 
 #[derive(Resource, Default)]
@@ -71,6 +75,8 @@ pub struct SavedMapData {
     pub tiles: Vec<Vec<TileType>>,
     pub stair_up_pos: Option<(u32, u32)>,
     pub stair_down_pos: Option<(u32, u32)>,
+    pub biome: BiomeType, // Add biome field
+    pub tile_visibility: Vec<Vec<TileVisibility>>, // Add tile visibility data
 }
 
 #[derive(Clone, Copy, PartialEq)]

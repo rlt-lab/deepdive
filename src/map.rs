@@ -6,6 +6,7 @@ use std::collections::HashSet;
 use crate::assets::{GameAssets, SpriteDatabase, sprite_position_to_index};
 use crate::components::{TileType, MapTile, SavedMapData, CurrentLevel, LevelMaps};
 use crate::fov::{TileVisibilityState, TileVisibility};
+use crate::biome::{BiomeType, BiomeConfig};
 
 #[derive(Resource)]
 pub struct GameMap {
@@ -26,6 +27,22 @@ impl GameMap {
             stair_up_pos: None,
             stair_down_pos: None,
         }
+    }
+    
+    // Helper function to check if a position is within the oblong circle boundary
+    fn is_within_ellipse(&self, x: u32, y: u32) -> bool {
+        let center_x = self.width as f32 / 2.0;
+        let center_y = self.height as f32 / 2.0;
+        
+        // Create an ellipse that fits within the map bounds with some padding
+        let a = (self.width as f32 / 2.0) - 2.0; // Semi-major axis (horizontal)
+        let b = (self.height as f32 / 2.0) - 2.0; // Semi-minor axis (vertical)
+        
+        let dx = x as f32 - center_x;
+        let dy = y as f32 - center_y;
+        
+        // Ellipse equation: (x-h)²/a² + (y-k)²/b² <= 1
+        (dx * dx) / (a * a) + (dy * dy) / (b * b) <= 1.0
     }
     
     pub fn generate_simple_room(&mut self) {
@@ -61,6 +78,13 @@ impl GameMap {
             let mut x = self.width / 2;
             let mut y = self.height / 2;
             
+            // Ensure starting position is within ellipse (it should be since center is always inside)
+            if !self.is_within_ellipse(x, y) {
+                // Fallback to exact center if needed
+                x = self.width / 2;
+                y = self.height / 2;
+            }
+            
             // Carve the starting position
             self.tiles[y as usize][x as usize] = TileType::Floor;
             carved_positions.insert((x, y));
@@ -71,24 +95,37 @@ impl GameMap {
                 let direction = rng.random_range(0..4);
                 
                 let (new_x, new_y) = match direction {
-                    0 if y > 1 => (x, y - 1),
-                    1 if x < self.width - 2 => (x + 1, y),
-                    2 if y < self.height - 2 => (x, y + 1),
-                    3 if x > 1 => (x - 1, y),
+                    0 if y > 0 => (x, y - 1),
+                    1 if x < self.width - 1 => (x + 1, y),
+                    2 if y < self.height - 1 => (x, y + 1),
+                    3 if x > 0 => (x - 1, y),
                     _ => (x, y), // Stay in place if at boundary
                 };
                 
-                x = new_x;
-                y = new_y;
-                
-                // Carve the floor
-                self.tiles[y as usize][x as usize] = TileType::Floor;
-                carved_positions.insert((x, y));
+                // Only move if the new position is within the elliptical boundary
+                if self.is_within_ellipse(new_x, new_y) {
+                    x = new_x;
+                    y = new_y;
+                    
+                    // Carve the floor
+                    self.tiles[y as usize][x as usize] = TileType::Floor;
+                    carved_positions.insert((x, y));
+                }
+                // If outside ellipse, stay at current position but don't carve
             }
         }
         
         // Ensure all carved areas are connected
         self.connect_disconnected_areas(&carved_positions);
+        
+        // Final cleanup: ensure all tiles outside the ellipse are walls
+        for y in 0..self.height {
+            for x in 0..self.width {
+                if !self.is_within_ellipse(x, y) {
+                    self.tiles[y as usize][x as usize] = TileType::Wall;
+                }
+            }
+        }
     }
     
     fn connect_disconnected_areas(&mut self, carved_positions: &HashSet<(u32, u32)>) {
@@ -188,7 +225,10 @@ impl GameMap {
                 x -= 1;
             }
             if x >= 0 && x < self.width as i32 && y >= 0 && y < self.height as i32 {
-                self.tiles[y as usize][x as usize] = TileType::Floor;
+                // Only carve if within ellipse boundary
+                if self.is_within_ellipse(x as u32, y as u32) {
+                    self.tiles[y as usize][x as usize] = TileType::Floor;
+                }
             }
         }
         
@@ -199,7 +239,10 @@ impl GameMap {
                 y -= 1;
             }
             if x >= 0 && x < self.width as i32 && y >= 0 && y < self.height as i32 {
-                self.tiles[y as usize][x as usize] = TileType::Floor;
+                // Only carve if within ellipse boundary
+                if self.is_within_ellipse(x as u32, y as u32) {
+                    self.tiles[y as usize][x as usize] = TileType::Floor;
+                }
             }
         }
     }
@@ -259,23 +302,23 @@ impl GameMap {
         positions
     }
     
-    pub fn to_saved_data(&self) -> SavedMapData {
+    pub fn from_saved_data(saved: &SavedMapData) -> Self {
+        let mut map = GameMap::new(saved.width, saved.height);
+        map.tiles = saved.tiles.clone();
+        map.stair_up_pos = saved.stair_up_pos;
+        map.stair_down_pos = saved.stair_down_pos;
+        map
+    }
+
+    pub fn to_saved_data(&self, biome: BiomeType, tile_visibility: Vec<Vec<TileVisibility>>) -> SavedMapData {
         SavedMapData {
             width: self.width,
             height: self.height,
             tiles: self.tiles.clone(),
             stair_up_pos: self.stair_up_pos,
             stair_down_pos: self.stair_down_pos,
-        }
-    }
-    
-    pub fn from_saved_data(data: &SavedMapData) -> Self {
-        Self {
-            width: data.width,
-            height: data.height,
-            tiles: data.tiles.clone(),
-            stair_up_pos: data.stair_up_pos,
-            stair_down_pos: data.stair_down_pos,
+            biome,
+            tile_visibility,
         }
     }
     
@@ -315,27 +358,98 @@ pub fn get_tile_texture_index(tile_type: TileType, map: &GameMap, x: u32, y: u32
     }
 }
 
+// Add biome asset selection function with context-aware wall selection
+pub fn select_biome_asset(biome_config: &BiomeConfig, tile_type: TileType, map: &GameMap, x: u32, y: u32, rng: &mut impl Rng) -> (u32, u32) {
+    match tile_type {
+        TileType::Floor => {
+            let assets = &biome_config.allowed_floor_assets;
+            if assets.is_empty() {
+                return (1, 6); // fallback to floor_stone1
+            }
+            assets[rng.random_range(0..assets.len())]
+        },
+        TileType::Wall => {
+            let wall_assets = &biome_config.allowed_wall_assets;
+            if wall_assets.is_empty() {
+                // Fallback logic with proper wall type selection
+                if map.has_wall_below(x, y) {
+                    return (0, 0); // dirt_wall_top
+                } else {
+                    return (1, 0); // dirt_wall_side
+                }
+            }
+            
+            // For biomes like Caverns with organized pairs: (top, side), (top, side)
+            // Check if we have pairs by looking at asset coordinates
+            let has_organized_pairs = wall_assets.len() >= 2 && 
+                wall_assets.len() % 2 == 0 &&
+                wall_assets.iter().step_by(2).all(|(x, y)| {
+                    // Check if this looks like a wall_top position (typically at x=0)
+                    *x == 0 || (*x, *y) == (0, 0) || (*x, *y) == (0, 1) || (*x, *y) == (0, 2) ||
+                    (*x, *y) == (0, 3) || (*x, *y) == (0, 4) || (*x, *y) == (0, 5)
+                });
+            
+            if has_organized_pairs {
+                // Use proper wall type selection for organized assets
+                if map.has_wall_below(x, y) {
+                    // Use wall_top sprites (even indices)
+                    let wall_top_indices: Vec<_> = (0..wall_assets.len()).step_by(2).collect();
+                    let selected_pair_idx = wall_top_indices[rng.random_range(0..wall_top_indices.len())];
+                    wall_assets[selected_pair_idx]
+                } else {
+                    // Use wall_side sprites (odd indices)
+                    let wall_side_indices: Vec<_> = (1..wall_assets.len()).step_by(2).collect();
+                    let selected_pair_idx = wall_side_indices[rng.random_range(0..wall_side_indices.len())];
+                    wall_assets[selected_pair_idx]
+                }
+            } else {
+                // For biomes without organized pairs, just use any wall asset
+                wall_assets[rng.random_range(0..wall_assets.len())]
+            }
+        },
+        TileType::Water => {
+            let assets = &biome_config.allowed_water_assets;
+            if assets.is_empty() {
+                return (0, 12); // fallback to blank_blue_floor for water
+            }
+            assets[rng.random_range(0..assets.len())]
+        },
+        TileType::StairUp => {
+            // Always use the specific staircase_up sprite
+            (8, 16)
+        },
+        TileType::StairDown => {
+            // Always use the specific staircase_down sprite  
+            (7, 16)
+        },
+    }
+}
+
 pub fn spawn_map(
     mut commands: Commands,
     assets: Res<GameAssets>,
-    sprite_db: Res<SpriteDatabase>,
+    _sprite_db: Res<SpriteDatabase>,
     level_maps: Res<LevelMaps>,
     current_level: Res<CurrentLevel>,
 ) {
+    // Biome-aware config and RNG
+    let biome_config = current_level.biome.get_config();
+    let mut rng = rand::rng();
+
     let map = if let Some(saved_data) = level_maps.maps.get(&current_level.level) {
         // Load existing map
         GameMap::from_saved_data(saved_data)
     } else {
         // Generate new map
-        let mut map = GameMap::new(30, 20); // Larger maps for drunkard walk
+        let mut map = GameMap::new(80, 50); // Larger maps for drunkard walk
         
         if current_level.level == 0 {
-            // Use a basic drunkard walk for level 0 for testing
-            map.generate_drunkard_walk(300, 2);
+            // Use a basic drunkard walk for level 0 for testing - scaled for 80x50 map
+            map.generate_drunkard_walk(2000, 3);
         } else {
-            // Use drunkard walk for deeper levels
-            let steps = 400 + (current_level.level * 10); // More complex deeper levels
-            let walkers = 3 + (current_level.level / 5); // More walkers for deeper levels
+            // Use drunkard walk for deeper levels - scaled for 80x50 map
+            let steps = 2500 + (current_level.level * 50); // More complex deeper levels
+            let walkers = 4 + (current_level.level / 3); // More walkers for deeper levels
             map.generate_drunkard_walk(steps, walkers);
         }
         
@@ -345,13 +459,15 @@ pub fn spawn_map(
     
     let tilemap_entity = commands.spawn_empty().id();
     let mut tile_storage = TileStorage::empty(TilemapSize { x: map.width, y: map.height });
-    
-    // Spawn tiles with proper texture selection
+
+    // Spawn tiles with biome-aware asset selection
     for y in 0..map.height {
         for x in 0..map.width {
             let tile_type = map.tiles[y as usize][x as usize];
-            let texture_index = get_tile_texture_index(tile_type, &map, x, y, &sprite_db);
-            
+            // Select sprite position based on biome configuration
+            let (sprite_x, sprite_y) = select_biome_asset(&biome_config, tile_type, &map, x, y, &mut rng);
+            let texture_index = sprite_position_to_index(sprite_x, sprite_y);
+
             let tile_pos = TilePos { x, y };
             let tile_entity = commands
                 .spawn((

@@ -42,21 +42,21 @@ pub fn camera_follow_system(
             let half_map_width = (map.width as f32 * tile_size) / 2.0;
             let half_map_height = (map.height as f32 * tile_size) / 2.0;
             
-            // For small maps (like our current 10x10), allow some padding for zoom
-            // For larger maps, we can add proper viewport-based constraints
-            let padding = 100.0; // Extra space around map edges
+            // For larger maps, add proper viewport-based constraints
+            // Extra space around map edges for comfortable viewing
+            let padding = 200.0; // Increased padding for larger maps
             let min_x = -half_map_width - padding;
             let max_x = half_map_width + padding;
             let min_y = -half_map_height - padding;
             let max_y = half_map_height + padding;
             
-            // Apply constraints - only constrain if map is large enough to warrant it
-            let constrained_x = if map.width <= 15 { 
+            // Apply constraints - only allow free camera movement for very small maps
+            let constrained_x = if map.width <= 10 { 
                 target_pos.x 
             } else { 
                 target_pos.x.clamp(min_x, max_x) 
             };
-            let constrained_y = if map.height <= 15 { 
+            let constrained_y = if map.height <= 10 { 
                 target_pos.y 
             } else { 
                 target_pos.y.clamp(min_y, max_y) 

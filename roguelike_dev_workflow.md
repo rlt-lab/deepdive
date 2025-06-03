@@ -212,88 +212,229 @@
 - Debug controls with SHIFT+O toggle for full map reveal
 - Resource existence checking to prevent crashes during initialization
 
-## Phase 8: Turn System (Days 19-20)
+## Phase 8: Biome System Implementation (Days 19-22)
 
-### Step 8.1: Turn Management
-- [ ] Implement turn-based system structure
-- [ ] Create turn manager component
-- [ ] Add action queue system
-- [ ] Test basic turn progression
+### Step 8.1: Biome Foundation Structure
+- [ ] Create biome module and enum system
+- [ ] Define BiomeType enum with all 9 biomes from infosheet
+- [ ] Create BiomeConfig struct to hold biome parameters
+- [ ] Implement biome asset mapping system
+- [ ] Test basic biome enum and config creation
 
-### Step 8.2: Action System
-- [ ] Define action types (movement, interaction)
-- [ ] Implement action validation
-- [ ] Add simultaneous entity action processing
-- [ ] Test turn system with player actions
+### Step 8.2: Asset Coordinate System
+- [ ] Update sprite configuration to support biome-specific assets
+- [ ] Implement coordinate-to-sprite mapping for biome assets
+- [ ] Create asset validation system for biome rules
+- [ ] Add fallback sprite handling for missing assets
+- [ ] Test asset coordinate system with existing sprites
 
-**Milestone 8: Functional turn-based system**
+### Step 8.3: Caverns Biome Implementation
+- [ ] Define Caverns biome configuration
+- [ ] Implement asset restrictions for Caverns (from infosheet):
+  ```
+  Floors: 0,0  1,0  0,1  1,1
+  Water: 0,6  1,6  2,6  3,6  
+  Walls: 1,7  2,7  3,7
+  Stairs: 1,8  2,8  3,8
+  ```
+- [ ] Update existing map generation to use Caverns biome
+- [ ] Test Caverns biome renders correctly with restricted assets
 
-## Phase 9: Debug Tools and Polish (Days 21-22)
+### Step 8.4: Biome-Aware Map Generation
+- [ ] Modify Drunkard's Walk to accept biome parameters
+- [ ] Update tile placement to respect biome asset restrictions
+- [ ] Add biome-specific generation parameters (if needed)
+- [ ] Integrate biome system with level manager
+- [ ] Test map generation uses only allowed assets
 
-### Step 9.1: Debug Controls
-- [ ] Implement SHIFT+O for FOV reveal toggle
-- [ ] Add SHIFT+R for map regeneration
-- [ ] Create SHIFT+E for stairwell usage
-- [ ] Test all debug controls
+### Step 8.5: Biome System Integration
+- [ ] Add biome selection to level system
+- [ ] Update map serialization to include biome data
+- [ ] Ensure level transitions preserve biome information
+- [ ] Add debug controls for biome testing (SHIFT+B for biome cycling)
+- [ ] Test complete biome system with level persistence
 
-### Step 9.2: Interaction System Foundation
-- [ ] Add basic E key interaction system
-- [ ] Create interaction component for entities
-- [ ] Test interaction detection and triggering
-- [ ] Prepare foundation for future features
+**Milestone 8: Complete Caverns biome with expandable biome system**
 
-### Step 9.3: Final Polish
-- [ ] Add any missing animations
-- [ ] Optimize rendering performance
-- [ ] Test all systems working together
-- [ ] Fix any remaining bugs
+## Implementation Details for Junior Developers
 
-**Milestone 9: Complete playable prototype with all core features**
+### Step 8.1: Biome Foundation Structure
 
-## Phase 10: Testing and Documentation (Days 23-24)
+Create a new file `src/biome.rs`:
 
-### Step 10.1: Comprehensive Testing
-- [ ] Test all movement combinations
-- [ ] Verify map generation works consistently
-- [ ] Test level transitions thoroughly
-- [ ] Validate FOV in various scenarios
-- [ ] Check debug controls functionality
+```rust
+// filepath: src/biome.rs
+use serde::{Deserialize, Serialize};
 
-### Step 10.2: Code Documentation
-- [ ] Add code comments to complex systems
-- [ ] Create README with build/run instructions
-- [ ] Document any known issues or limitations
-- [ ] Prepare for future development phases
+#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
+pub enum BiomeType {
+    Caverns,
+    Underglade,
+    FungalDeep,
+    CinderGaol,
+    AbyssalHold,
+    NetherGrange,
+    ChthronicCrypts,
+    HypogealKnot,
+    StygianPool,
+}
 
-**Final Milestone: Complete, tested, and documented roguelike prototype**
+#[derive(Clone, Debug)]
+pub struct BiomeConfig {
+    pub name: String,
+    pub description: String,
+    pub allowed_floor_assets: Vec<(u32, u32)>,
+    pub allowed_wall_assets: Vec<(u32, u32)>,
+    pub allowed_water_assets: Vec<(u32, u32)>,
+    pub allowed_stair_assets: Vec<(u32, u32)>,
+}
 
-## Development Tips for Junior Developers
+impl BiomeType {
+    pub fn get_config(&self) -> BiomeConfig {
+        match self {
+            BiomeType::Caverns => BiomeConfig {
+                name: "Caverns".to_string(),
+                description: "Natural underground caves with rough stone walls, frequent water features, and occasional crystal formations.".to_string(),
+                allowed_floor_assets: vec![(0,0), (1,0), (0,1), (1,1)],
+                allowed_wall_assets: vec![(1,7), (2,7), (3,7)],
+                allowed_water_assets: vec![(0,6), (1,6), (2,6), (3,6)],
+                allowed_stair_assets: vec![(1,8), (2,8), (3,8)],
+            },
+            // TODO: Add other biomes in future steps
+            _ => todo!("Implement other biomes"),
+        }
+    }
+}
+```
 
-### Daily Workflow
-1. Start each day by reviewing the previous day's work
-2. Run the game and test existing functionality
-3. Work on one step at a time - don't jump ahead
-4. Test frequently (after each sub-step if possible)
-5. Commit code at each milestone completion
+Add to `src/main.rs`:
+```rust
+// filepath: src/main.rs
+mod biome;
+use biome::*;
+```
 
-### Debugging Strategies
-- Use `println!` statements liberally for debugging
-- Test each system in isolation before integration
-- Keep backup versions of working code
-- Don't be afraid to rewrite difficult sections
+### Step 8.2: Asset Coordinate System
 
-### When Stuck
-1. Re-read the design document section
-2. Look up Bevy documentation and examples
-3. Break the problem into smaller sub-problems
-4. Consider simplifying the approach initially
+Update `src/components.rs` to include biome information:
 
-### Code Organization
-- Keep each system in its own module/file
-- Use descriptive component and system names
-- Comment complex algorithms thoroughly
-- Maintain consistent code style throughout
+```rust
+// filepath: src/components.rs
+// ...existing code...
+use crate::biome::BiomeType;
 
-## Estimated Timeline: 24 days for complete prototype
+#[derive(Resource)]
+pub struct CurrentLevel {
+    pub level: u32,
+    pub biome: BiomeType,  // Add this line
+}
 
-This workflow prioritizes getting a playable prototype quickly while building a solid foundation for future features. Each phase builds incrementally on the previous work, ensuring steady progress and early feedback opportunities.
+#[derive(Clone, Serialize, Deserialize)]
+pub struct SavedMapData {
+    pub tiles: Vec<Vec<TileType>>,
+    pub biome: BiomeType,  // Add this line
+}
+```
+
+### Step 8.3: Caverns Biome Implementation
+
+Update `src/map.rs` to use biome-aware asset selection:
+
+```rust
+// filepath: src/map.rs
+// ...existing code...
+use crate::biome::{BiomeType, BiomeConfig};
+
+// Add this new function
+fn select_biome_asset(biome_config: &BiomeConfig, tile_type: TileType, rng: &mut impl Rng) -> (u32, u32) {
+    let assets = match tile_type {
+        TileType::Floor => &biome_config.allowed_floor_assets,
+        TileType::Wall => &biome_config.allowed_wall_assets,
+        TileType::Water => &biome_config.allowed_water_assets,
+        TileType::StairUp | TileType::StairDown => &biome_config.allowed_stair_assets,
+    };
+    
+    if assets.is_empty() {
+        return (0, 0); // Fallback
+    }
+    
+    assets[rng.gen_range(0..assets.len())]
+}
+```
+
+### Step 8.4: Biome-Aware Map Generation
+
+Update the `spawn_map` function in `src/map.rs`:
+
+```rust
+// filepath: src/map.rs
+pub fn spawn_map(
+    commands: &mut Commands,
+    texture_assets: &TextureAssets,
+    current_level: &CurrentLevel,
+) {
+    let biome_config = current_level.biome.get_config();
+    let mut rng = rand::thread_rng();
+    
+    // ...existing map generation code...
+    
+    // When placing tiles, use biome-aware selection:
+    for y in 0..height {
+        for x in 0..width {
+            let tile_type = map.tiles[y][x];
+            let (sprite_x, sprite_y) = select_biome_asset(&biome_config, tile_type, &mut rng);
+            
+            // ...rest of tile spawning code...
+        }
+    }
+}
+```
+
+### Step 8.5: Biome System Integration
+
+Update `src/level_manager.rs` to initialize with Caverns biome:
+
+```rust
+// filepath: src/level_manager.rs
+// ...existing code...
+
+pub fn setup_level_manager(mut commands: Commands) {
+    commands.insert_resource(CurrentLevel { 
+        level: 0,
+        biome: BiomeType::Caverns,  // Add this line
+    });
+}
+```
+
+### Testing Strategy for Each Step
+
+1. **Step 8.1**: Compile and verify biome enum can be created
+2. **Step 8.2**: Test that biome data serializes/deserializes correctly
+3. **Step 8.3**: Generate maps and verify only Caverns assets are used
+4. **Step 8.4**: Test map regeneration uses biome-restricted assets
+5. **Step 8.5**: Test level transitions preserve biome information
+
+### Debug Controls
+
+Add to input handling system:
+```rust
+// SHIFT+B: Cycle biome for current level (debug)
+if keyboard_input.pressed(KeyCode::ShiftLeft) && keyboard_input.just_pressed(KeyCode::KeyB) {
+    // Cycle biome and regenerate map
+}
+```
+
+### Future Expansion
+
+This biome system is designed to easily add the remaining 8 biomes by:
+1. Adding new match arms to `BiomeType::get_config()`
+2. Implementing biome-specific generation algorithms
+3. Adding biome progression logic (which biome appears at which levels)
+
+### Expected Timeline
+- **Day 19**: Steps 8.1-8.2 (Foundation and Asset System)
+- **Day 20**: Steps 8.3-8.4 (Caverns Implementation) 
+- **Day 21**: Step 8.5 (Integration and Testing)
+- **Day 22**: Polish, debug controls, and documentation
+
+This approach ensures you have a solid, expandable biome system while completing your current Caverns biome properly according to your infosheet specifications.

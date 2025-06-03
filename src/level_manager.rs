@@ -1,12 +1,13 @@
 use bevy::prelude::*;
 use bevy_ecs_tilemap::prelude::*;
 
-use crate::assets::{GameAssets, SpriteDatabase};
+use crate::assets::{GameAssets, SpriteDatabase, sprite_position_to_index};
 use crate::components::*;
-use crate::map::{GameMap, get_tile_texture_index};
+use crate::map::{GameMap, select_biome_asset};
 use crate::player::{LevelChangeEvent, RegenerateMapEvent, SpawnPosition};
 use crate::states::GameState;
 use crate::fov::{FovSettings, TileVisibilityState, TileVisibility};
+use crate::biome::BiomeType;
 
 pub struct LevelManagerPlugin;
 
@@ -25,29 +26,53 @@ impl Plugin for LevelManagerPlugin {
 
 impl Default for CurrentLevel {
     fn default() -> Self {
-        Self { level: 0 }
+        Self { level: 0, biome: BiomeType::Caverns }
     }
+}
+
+// Helper function to capture current tile visibility states
+pub fn capture_tile_visibility(
+    tile_query: &Query<(&TilePos, &TileVisibilityState)>,
+    map_width: u32,
+    map_height: u32,
+) -> Vec<Vec<TileVisibility>> {
+    let mut visibility_data = vec![vec![TileVisibility::Unseen; map_width as usize]; map_height as usize];
+    
+    for (tile_pos, visibility_state) in tile_query.iter() {
+        if tile_pos.x < map_width && tile_pos.y < map_height {
+            visibility_data[tile_pos.y as usize][tile_pos.x as usize] = visibility_state.visibility;
+        }
+    }
+    
+    visibility_data
 }
 
 pub fn handle_level_transitions(
     mut commands: Commands,
     mut level_change_events: EventReader<LevelChangeEvent>,
     mut current_level: ResMut<CurrentLevel>,
-    level_maps: Res<LevelMaps>,
+    mut level_maps: ResMut<LevelMaps>, // changed to ResMut
     assets: Res<GameAssets>,
-    sprite_db: Res<SpriteDatabase>,
+    _sprite_db: Res<SpriteDatabase>,
     mut player_query: Query<&mut Player>,
     tilemap_query: Query<Entity, With<TileStorage>>,
     tile_visibility_query: Query<Entity, With<TileVisibilityState>>,
+    tile_pos_visibility_query: Query<(&TilePos, &TileVisibilityState)>,
+    map: Option<Res<GameMap>>,
     mut fov_settings: ResMut<FovSettings>,
 ) {
     for event in level_change_events.read() {
         println!("Transitioning to level {}", event.new_level);
         
-        // Update current level
-        current_level.level = event.new_level;
+        // Save current tile visibility states before leaving the current level
+        if let Some(current_map) = &map {
+            let current_visibility = capture_tile_visibility(&tile_pos_visibility_query, current_map.width, current_map.height);
+            if let Some(saved_data) = level_maps.maps.get_mut(&current_level.level) {
+                saved_data.tile_visibility = current_visibility;
+            }
+        }
         
-        // Clear existing tilemap and all tile entities recursively
+        // Clear existing tilemap and all tile entities
         for entity in tilemap_query.iter() {
             commands.entity(entity).despawn();
         }
@@ -57,23 +82,30 @@ pub fn handle_level_transitions(
             commands.entity(entity).despawn();
         }
         
+        // Update current level
+        current_level.level = event.new_level;
+        
         // Load or generate map for new level
-        let map = if let Some(saved_data) = level_maps.maps.get(&event.new_level) {
-            GameMap::from_saved_data(saved_data)
+        let (map, saved_visibility) = if let Some(saved_data) = level_maps.maps.get(&event.new_level) {
+            // Sync biome from saved data
+            current_level.biome = saved_data.biome;
+            let saved_visibility = saved_data.tile_visibility.clone();
+            (GameMap::from_saved_data(saved_data), saved_visibility)
         } else {
-            let mut map = GameMap::new(30, 20);
-            
+            let mut map = GameMap::new(80, 50);
             if event.new_level == 0 {
-                // Use a basic drunkard walk for level 0 for testing
                 map.generate_drunkard_walk(300, 2);
             } else {
                 let steps = 400 + (event.new_level * 10);
                 let walkers = 3 + (event.new_level / 5);
                 map.generate_drunkard_walk(steps, walkers);
             }
-            
             map.place_stairs(event.new_level);
-            map
+            // Create new visibility data for new map
+            let new_visibility = vec![vec![TileVisibility::Unseen; map.width as usize]; map.height as usize];
+            // Save new map data with biome
+            level_maps.maps.insert(event.new_level, map.to_saved_data(current_level.biome, new_visibility.clone()));
+            (map, new_visibility)
         };
         
         // Position player at appropriate spawn point
@@ -98,11 +130,14 @@ pub fn handle_level_transitions(
         let tilemap_entity = commands.spawn_empty().id();
         let mut tile_storage = TileStorage::empty(TilemapSize { x: map.width, y: map.height });
         
-        // Spawn tiles with proper texture selection
+        // Spawn tiles with biome-aware texture selection
+        let biome_config = current_level.biome.get_config();
+        let mut rng = rand::rng();
         for y in 0..map.height {
             for x in 0..map.width {
                 let tile_type = map.tiles[y as usize][x as usize];
-                let texture_index = get_tile_texture_index(tile_type, &map, x, y, &sprite_db);
+                let (sprite_x, sprite_y) = select_biome_asset(&biome_config, tile_type, &map, x, y, &mut rng);
+                let texture_index = sprite_position_to_index(sprite_x, sprite_y);
                 
                 let tile_pos = TilePos { x, y };
                 let tile_entity = commands
@@ -114,7 +149,7 @@ pub fn handle_level_transitions(
                             ..Default::default()
                         },
                         MapTile { tile_type },
-                        TileVisibilityState { visibility: TileVisibility::Unseen },
+                        TileVisibilityState { visibility: saved_visibility[y as usize][x as usize] },
                     ))
                     .id();
                 tile_storage.set(&tile_pos, tile_entity);
@@ -169,14 +204,15 @@ pub fn handle_map_regeneration(
         }
         
         // Generate new map
-        let mut map = GameMap::new(30, 20);
+        let mut map = GameMap::new(80, 50);
         
         if current_level.level == 0 {
-            // Use a basic drunkard walk for level 0 for testing
-            map.generate_drunkard_walk(300, 2);
+            // Use a basic drunkard walk for level 0 for testing - scaled for 80x50 map
+            map.generate_drunkard_walk(2000, 3);
         } else {
-            let steps = 400 + (current_level.level * 10);
-            let walkers = 3 + (current_level.level / 5);
+            // Scale parameters for 80x50 map (4000 tiles vs previous 600 tiles)
+            let steps = 2500 + (current_level.level * 50);
+            let walkers = 4 + (current_level.level / 3);
             map.generate_drunkard_walk(steps, walkers);
         }
         
@@ -218,17 +254,21 @@ pub fn handle_map_regeneration(
         }
         
         // Save the new map
-        level_maps.maps.insert(current_level.level, map.to_saved_data());
+        let new_visibility = vec![vec![TileVisibility::Unseen; map.width as usize]; map.height as usize];
+        level_maps.maps.insert(current_level.level, map.to_saved_data(current_level.biome, new_visibility.clone()));
         
         // Spawn the new map inline
         let tilemap_entity = commands.spawn_empty().id();
         let mut tile_storage = TileStorage::empty(TilemapSize { x: map.width, y: map.height });
         
-        // Spawn tiles with proper texture selection
+        // Spawn tiles with biome-aware texture selection
+        let biome_config = current_level.biome.get_config();
+        let mut rng = rand::rng();
         for y in 0..map.height {
             for x in 0..map.width {
                 let tile_type = map.tiles[y as usize][x as usize];
-                let texture_index = get_tile_texture_index(tile_type, &map, x, y, &sprite_db);
+                let (sprite_x, sprite_y) = select_biome_asset(&biome_config, tile_type, &map, x, y, &mut rng);
+                let texture_index = sprite_position_to_index(sprite_x, sprite_y);
                 
                 let tile_pos = TilePos { x, y };
                 let tile_entity = commands
@@ -240,7 +280,7 @@ pub fn handle_map_regeneration(
                             ..Default::default()
                         },
                         MapTile { tile_type },
-                        TileVisibilityState { visibility: TileVisibility::Unseen },
+                        TileVisibilityState { visibility: new_visibility[y as usize][x as usize] },
                     ))
                     .id();
                 tile_storage.set(&tile_pos, tile_entity);

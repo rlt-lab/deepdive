@@ -1,10 +1,11 @@
 use bevy::prelude::*;
 use bevy_ecs_tilemap::prelude::*;
+use serde::{Deserialize, Serialize};
 
 use crate::components::{Player, TileType};
 use crate::map::GameMap;
 
-#[derive(Component, Clone, Copy, Debug, PartialEq)]
+#[derive(Component, Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
 pub enum TileVisibility {
     Unseen,
     Seen,
@@ -21,6 +22,7 @@ pub struct FovSettings {
     pub radius: u32,
     pub debug_reveal_all: bool,
     pub needs_recalculation: bool,
+    pub debug_mode_applied: bool, // Track if debug mode has been applied
 }
 
 impl Default for FovSettings {
@@ -29,6 +31,7 @@ impl Default for FovSettings {
             radius: 8,
             debug_reveal_all: false,
             needs_recalculation: true,
+            debug_mode_applied: false,
         }
     }
 }
@@ -63,7 +66,10 @@ pub fn should_recalculate_fov(
     fov_settings: Res<FovSettings>,
     map: Option<Res<GameMap>>,
 ) -> bool {
-    map.is_some() && (fov_settings.needs_recalculation || fov_settings.debug_reveal_all)
+    map.is_some() && (
+        fov_settings.needs_recalculation || 
+        (fov_settings.debug_reveal_all && !fov_settings.debug_mode_applied)
+    )
 }
 
 // Simple FOV calculation using basic line-of-sight
@@ -75,40 +81,50 @@ pub fn calculate_fov(
 ) {
     let Ok(player) = player_query.single() else { return; };
     
-    let player_x = player.x as i32;
-    let player_y = player.y as i32;
-    let radius = fov_settings.radius as i32;
-    
-    // Reset all tiles to previously seen state first
-    for (_, mut visibility_state) in tile_query.iter_mut() {
-        if visibility_state.visibility == TileVisibility::Visible {
-            visibility_state.visibility = TileVisibility::Seen;
-        }
-    }
-    
-    // If debug mode is on, reveal all tiles
+    // If debug mode is on, reveal all tiles (only once)
     if fov_settings.debug_reveal_all {
-        for (_, mut visibility_state) in tile_query.iter_mut() {
-            visibility_state.visibility = TileVisibility::Visible;
+        if !fov_settings.debug_mode_applied {
+            for (_, mut visibility_state) in tile_query.iter_mut() {
+                visibility_state.visibility = TileVisibility::Visible;
+            }
+            fov_settings.debug_mode_applied = true;
         }
         fov_settings.needs_recalculation = false;
         return;
     }
     
-    // Calculate FOV for each tile within radius
+    // Reset debug mode tracking when not in debug mode
+    if fov_settings.debug_mode_applied {
+        fov_settings.debug_mode_applied = false;
+    }
+    
+    let player_x = player.x as i32;
+    let player_y = player.y as i32;
+    let radius = fov_settings.radius as i32;
+    let radius_squared = radius.pow(2);
+    
+    // More efficient single-pass approach: iterate through tiles and update visibility
     for (tile_pos, mut visibility_state) in tile_query.iter_mut() {
         let tile_x = tile_pos.x as i32;
         let tile_y = tile_pos.y as i32;
         
-        // Check if tile is within radius
+        // Calculate distance squared (avoid sqrt for performance)
         let distance_squared = (tile_x - player_x).pow(2) + (tile_y - player_y).pow(2);
-        if distance_squared <= radius.pow(2) {
+        
+        if distance_squared <= radius_squared {
             // Check line of sight from player to tile
             if has_line_of_sight(&map, player_x, player_y, tile_x, tile_y) {
                 visibility_state.visibility = TileVisibility::Visible;
-            } else if visibility_state.visibility == TileVisibility::Unseen {
-                // Don't change previously seen tiles back to unseen
-                continue;
+            } else {
+                // If tile was visible, make it seen; don't change unseen tiles
+                if visibility_state.visibility == TileVisibility::Visible {
+                    visibility_state.visibility = TileVisibility::Seen;
+                }
+            }
+        } else {
+            // Outside radius: if tile was visible, make it seen
+            if visibility_state.visibility == TileVisibility::Visible {
+                visibility_state.visibility = TileVisibility::Seen;
             }
         }
     }
@@ -185,6 +201,7 @@ pub fn handle_fov_debug_controls(
     if keyboard_input.just_pressed(KeyCode::KeyO) && 
        (keyboard_input.pressed(KeyCode::ShiftLeft) || keyboard_input.pressed(KeyCode::ShiftRight)) {
         fov_settings.debug_reveal_all = !fov_settings.debug_reveal_all;
+        fov_settings.debug_mode_applied = false; // Reset flag to trigger recalculation
         fov_settings.needs_recalculation = true;
         println!("FOV debug reveal: {}", if fov_settings.debug_reveal_all { "ON" } else { "OFF" });
     }

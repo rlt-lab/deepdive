@@ -13,6 +13,8 @@ mod player;
 mod camera;
 mod level_manager;
 mod fov;
+mod biome;
+mod ui;
 
 use assets::{GameAssets, SpriteDatabase};
 use states::GameState;
@@ -21,6 +23,7 @@ use player::*;
 use camera::*;
 use level_manager::LevelManagerPlugin;
 use fov::FovPlugin;
+use ui::UiPlugin;
 
 fn main() {
     App::new()
@@ -36,6 +39,7 @@ fn main() {
         .add_plugins(TilemapPlugin)
         .add_plugins(LevelManagerPlugin)
         .add_plugins(FovPlugin)
+        .add_plugins(UiPlugin)
         .init_state::<GameState>()
         .insert_resource(ClearColor(Color::BLACK)) // Set background to black
         .insert_resource(SpriteDatabase::new()) // Add sprite database resource
@@ -57,6 +61,7 @@ fn main() {
             handle_continuous_movement,
             handle_stair_interaction,
             debug_map_regeneration,
+            debug_biome_cycling,
             camera_follow_system,
             camera_zoom_system,
             camera_debug_system

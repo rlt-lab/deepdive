@@ -1,8 +1,12 @@
 use bevy::prelude::*;
+use bevy_ecs_tilemap::prelude::*;
 
 use crate::assets::GameAssets;
 use crate::components::*;
 use crate::map::GameMap;
+use crate::biome::BiomeType;
+use crate::level_manager::capture_tile_visibility;
+use crate::fov::TileVisibilityState;
 
 pub fn spawn_player(
     mut commands: Commands,
@@ -238,6 +242,7 @@ pub fn handle_continuous_movement(
 pub fn handle_stair_interaction(
     keyboard_input: Res<ButtonInput<KeyCode>>,
     player_query: Query<&Player>,
+    tile_visibility_query: Query<(&TilePos, &TileVisibilityState)>,
     map: Res<GameMap>,
     current_level: Res<CurrentLevel>,
     mut level_maps: ResMut<LevelMaps>,
@@ -250,8 +255,9 @@ pub fn handle_stair_interaction(
             match tile_type {
                 TileType::StairUp if current_level.level > 0 => {
                     println!("Going up to level {}", current_level.level - 1);
-                    // Save current map
-                    level_maps.maps.insert(current_level.level, map.to_saved_data());
+                    // Save current map with tile visibility
+                    let current_visibility = capture_tile_visibility(&tile_visibility_query, map.width, map.height);
+                    level_maps.maps.insert(current_level.level, map.to_saved_data(current_level.biome, current_visibility));
                     // Trigger level change
                     level_change_events.write(LevelChangeEvent {
                         new_level: current_level.level - 1,
@@ -260,8 +266,9 @@ pub fn handle_stair_interaction(
                 },
                 TileType::StairDown if current_level.level < 50 => {
                     println!("Going down to level {}", current_level.level + 1);
-                    // Save current map
-                    level_maps.maps.insert(current_level.level, map.to_saved_data());
+                    // Save current map with tile visibility
+                    let current_visibility = capture_tile_visibility(&tile_visibility_query, map.width, map.height);
+                    level_maps.maps.insert(current_level.level, map.to_saved_data(current_level.biome, current_visibility));
                     // Trigger level change
                     level_change_events.write(LevelChangeEvent {
                         new_level: current_level.level + 1,
@@ -289,6 +296,29 @@ pub fn debug_map_regeneration(
     if keyboard_input.just_pressed(KeyCode::KeyR) && 
        (keyboard_input.pressed(KeyCode::ShiftLeft) || keyboard_input.pressed(KeyCode::ShiftRight)) {
         println!("Regenerating current level map...");
+        regenerate_events.write(RegenerateMapEvent);
+    }
+}
+
+pub fn debug_biome_cycling(
+    keyboard_input: Res<ButtonInput<KeyCode>>,
+    mut current_level: ResMut<CurrentLevel>,
+    mut regenerate_events: EventWriter<RegenerateMapEvent>,
+) {
+    if keyboard_input.just_pressed(KeyCode::KeyB) && 
+       (keyboard_input.pressed(KeyCode::ShiftLeft) || keyboard_input.pressed(KeyCode::ShiftRight)) {
+        
+        // Cycle to next biome (currently only Caverns implemented)
+        current_level.biome = match current_level.biome {
+            BiomeType::Caverns => {
+                println!("Cycling biome: Caverns (only biome currently implemented)");
+                BiomeType::Caverns // Stay on Caverns since it's the only one implemented
+            },
+            _ => BiomeType::Caverns, // Fallback to Caverns for unimplemented biomes
+        };
+        
+        println!("Current biome: {:?}", current_level.biome);
+        println!("Regenerating map with new biome...");
         regenerate_events.write(RegenerateMapEvent);
     }
 }

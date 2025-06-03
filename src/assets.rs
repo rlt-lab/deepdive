@@ -10,6 +10,8 @@ pub struct GameAssets {
     pub rogues: Handle<Image>,
     #[asset(path = "sprites/tiles.png")]
     pub tiles: Handle<Image>,
+    #[asset(path = "fonts/akkurat.otf")]
+    pub akkurat_font: Handle<Font>,
 }
 
 // Sprite configuration structures

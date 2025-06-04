@@ -16,6 +16,7 @@ mod level_manager;
 mod fov;
 mod biome;
 mod ui;
+mod particles;
 
 use assets::{GameAssets, SpriteDatabase};
 use states::GameState;
@@ -25,6 +26,7 @@ use camera::*;
 use level_manager::LevelManagerPlugin;
 use fov::FovPlugin;
 use ui::UiPlugin;
+use particles::ParticlePlugin;
 
 fn main() {
     App::new()
@@ -41,6 +43,7 @@ fn main() {
         .add_plugins(LevelManagerPlugin)
         .add_plugins(FovPlugin)
         .add_plugins(UiPlugin)
+        .add_plugins(ParticlePlugin)
         .init_state::<GameState>()
         .insert_resource(ClearColor(Color::BLACK)) // Set background to black
         .insert_resource(SpriteDatabase::new()) // Add sprite database resource

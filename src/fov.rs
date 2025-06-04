@@ -2,8 +2,9 @@ use bevy::prelude::*;
 use bevy_ecs_tilemap::prelude::*;
 use serde::{Deserialize, Serialize};
 
-use crate::components::{Player, TileType};
+use crate::components::{Player, TileType, CurrentLevel};
 use crate::map::GameMap;
+use crate::biome::BiomeType;
 
 #[derive(Component, Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
 pub enum TileVisibility {
@@ -175,7 +176,11 @@ fn has_line_of_sight(map: &GameMap, x0: i32, y0: i32, x1: i32, y1: i32) -> bool 
 
 pub fn update_tile_visibility(
     mut tile_query: Query<(&mut TileColor, &TileVisibilityState), Changed<TileVisibilityState>>,
+    current_level: Res<CurrentLevel>,
 ) {
+    // Get biome-specific color tint
+    let biome_tint = get_biome_color_tint(current_level.biome);
+    
     for (mut tile_color, visibility_state) in tile_query.iter_mut() {
         match visibility_state.visibility {
             TileVisibility::Unseen => {
@@ -183,15 +188,42 @@ pub fn update_tile_visibility(
                 tile_color.0 = Color::srgb(0.0, 0.0, 0.0);
             },
             TileVisibility::Seen => {
-                // Darkened/grayed out for memory
-                tile_color.0 = Color::srgb(0.3, 0.3, 0.4);
+                // Darkened/grayed out for memory, with biome tint
+                let base_color = Color::srgb(0.3, 0.3, 0.4);
+                tile_color.0 = apply_color_tint(base_color, biome_tint, 0.4);
             },
             TileVisibility::Visible => {
-                // Full visibility
-                tile_color.0 = Color::WHITE;
+                // Full visibility with biome tint
+                tile_color.0 = apply_color_tint(Color::WHITE, biome_tint, 0.6);
             },
         }
     }
+}
+
+// Helper function to get biome-specific color tint
+fn get_biome_color_tint(biome: BiomeType) -> Color {
+    match biome {
+        BiomeType::CinderGaol => Color::srgb(1.3, 0.7, 0.7), // Red tint for fire/prison theme
+        BiomeType::NetherGrange => Color::srgb(1.4, 0.6, 0.4), // Orange-red for hellish landscape
+        BiomeType::Underglade => Color::srgb(0.8, 1.2, 0.9), // Green tint for lush biome
+        BiomeType::FungalDeep => Color::srgb(0.9, 0.8, 1.3), // Purple tint for spores
+        BiomeType::AbyssalHold => Color::srgb(0.7, 0.7, 1.2), // Blue tint for dark waters
+        BiomeType::StygianPool => Color::srgb(0.6, 0.8, 1.3), // Cyan tint for underground lake
+        _ => Color::WHITE, // No tint for other biomes
+    }
+}
+
+// Helper function to apply color tint with intensity
+fn apply_color_tint(base_color: Color, tint: Color, intensity: f32) -> Color {
+    let base = base_color.to_linear();
+    let tint_linear = tint.to_linear();
+    
+    // Blend base color with tint based on intensity
+    let r = base.red * (1.0 - intensity + intensity * tint_linear.red);
+    let g = base.green * (1.0 - intensity + intensity * tint_linear.green);
+    let b = base.blue * (1.0 - intensity + intensity * tint_linear.blue);
+    
+    Color::linear_rgb(r, g, b)
 }
 
 pub fn handle_fov_debug_controls(

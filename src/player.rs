@@ -308,13 +308,21 @@ pub fn debug_biome_cycling(
     if keyboard_input.just_pressed(KeyCode::KeyB) && 
        (keyboard_input.pressed(KeyCode::ShiftLeft) || keyboard_input.pressed(KeyCode::ShiftRight)) {
         
-        // Cycle to next biome (currently only Caverns implemented)
+        // Cycle between implemented biomes: Caverns -> Cinder Gaol -> Underglade -> back to Caverns
         current_level.biome = match current_level.biome {
             BiomeType::Caverns => {
-                println!("Cycling biome: Caverns (only biome currently implemented)");
-                BiomeType::Caverns // Stay on Caverns since it's the only one implemented
+                println!("Cycling from Caverns to Cinder Gaol");
+                BiomeType::CinderGaol
             },
-            _ => BiomeType::Caverns, // Fallback to Caverns for unimplemented biomes
+            BiomeType::CinderGaol => {
+                println!("Cycling from Cinder Gaol to Underglade");
+                BiomeType::Underglade
+            },
+            BiomeType::Underglade => {
+                println!("Cycling from Underglade back to Caverns");
+                BiomeType::Caverns
+            },
+            _ => BiomeType::Caverns, // Fallback to Caverns for other biomes
         };
         
         println!("Current biome: {:?}", current_level.biome);

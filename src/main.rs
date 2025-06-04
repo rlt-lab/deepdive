@@ -9,6 +9,7 @@ mod components;
 mod states;
 mod assets;
 mod map;
+mod map_generation;
 mod player;
 mod camera;
 mod level_manager;

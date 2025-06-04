@@ -7,6 +7,7 @@ use crate::assets::{GameAssets, SpriteDatabase, sprite_position_to_index};
 use crate::components::{TileType, MapTile, SavedMapData, CurrentLevel, LevelMaps};
 use crate::fov::{TileVisibilityState, TileVisibility};
 use crate::biome::{BiomeType, BiomeConfig};
+use crate::map_generation::{MapGenParams, get_generator};
 
 #[derive(Resource)]
 pub struct GameMap {
@@ -43,6 +44,42 @@ impl GameMap {
         
         // Ellipse equation: (x-h)²/a² + (y-k)²/b² <= 1
         (dx * dx) / (a * a) + (dy * dy) / (b * b) <= 1.0
+    }
+    
+    // New modular generation method
+    pub fn generate_with_biome(&mut self, biome: BiomeType, level: u32) {
+        let params = MapGenParams::for_biome(biome, level);
+        let mut generator = get_generator(&params.algorithm);
+        self.tiles = generator.generate(self.width, self.height, &params);
+        
+        // Ensure connectivity for all generation types
+        self.ensure_connectivity();
+    }
+    
+    fn ensure_connectivity(&mut self) {
+        let carved_positions = self.get_floor_positions_set();
+        self.connect_disconnected_areas(&carved_positions);
+        
+        // Final cleanup: ensure all tiles outside the ellipse are walls
+        for y in 0..self.height {
+            for x in 0..self.width {
+                if !self.is_within_ellipse(x, y) {
+                    self.tiles[y as usize][x as usize] = TileType::Wall;
+                }
+            }
+        }
+    }
+    
+    fn get_floor_positions_set(&self) -> HashSet<(u32, u32)> {
+        let mut positions = HashSet::new();
+        for y in 0..self.height {
+            for x in 0..self.width {
+                if self.tiles[y as usize][x as usize] == TileType::Floor {
+                    positions.insert((x, y));
+                }
+            }
+        }
+        positions
     }
     
     pub fn generate_simple_room(&mut self) {
@@ -366,45 +403,73 @@ pub fn select_biome_asset(biome_config: &BiomeConfig, tile_type: TileType, map: 
             if assets.is_empty() {
                 return (1, 6); // fallback to floor_stone1
             }
+            
+            // Special weighted selection for Cinder Gaol to prefer dark_brown_bg and red floors
+            if biome_config.name == "Cinder Gaol" {
+                let rand_val = rng.random::<f32>();
+                if rand_val < 0.35 && assets.contains(&(0, 15)) {
+                    return (0, 15); // 35% chance for dark_brown_bg (most common)
+                } else if rand_val < 0.55 {
+                    // 20% chance for red floors - pick randomly from available red floors
+                    let red_floors: Vec<_> = assets.iter()
+                        .filter(|&&(_, y)| y == 11) // Red floors are on row 11
+                        .cloned()
+                        .collect();
+                    if !red_floors.is_empty() {
+                        return red_floors[rng.random_range(0..red_floors.len())];
+                    }
+                }
+                // Remaining 45% falls through to normal random selection (bones, etc.)
+            }
+            
             assets[rng.random_range(0..assets.len())]
         },
         TileType::Wall => {
             let wall_assets = &biome_config.allowed_wall_assets;
             if wall_assets.is_empty() {
                 // Fallback logic with proper wall type selection
-                if map.has_wall_below(x, y) {
-                    return (0, 0); // dirt_wall_top
+                if !map.has_wall_below(x, y) {
+                    return (1, 0); // dirt_wall_side (no wall below = exposed bottom edge)
                 } else {
-                    return (1, 0); // dirt_wall_side
+                    return (0, 0); // dirt_wall_top (wall below = top surface of continuing wall)
                 }
             }
             
-            // For biomes like Caverns with organized pairs: (top, side), (top, side)
-            // Check if we have pairs by looking at asset coordinates
-            let has_organized_pairs = wall_assets.len() >= 2 && 
-                wall_assets.len() % 2 == 0 &&
-                wall_assets.iter().step_by(2).all(|(x, y)| {
-                    // Check if this looks like a wall_top position (typically at x=0)
-                    *x == 0 || (*x, *y) == (0, 0) || (*x, *y) == (0, 1) || (*x, *y) == (0, 2) ||
-                    (*x, *y) == (0, 3) || (*x, *y) == (0, 4) || (*x, *y) == (0, 5)
-                });
+            // Separate wall assets by type based on the coordinate pattern
+            // wall_top assets are typically at x=0 (first column)
+            // wall_side assets are typically at x=1,2,3... (other columns)
+            let wall_top_assets: Vec<_> = wall_assets.iter()
+                .filter(|(x, _)| *x == 0)
+                .cloned()
+                .collect();
+            let wall_side_assets: Vec<_> = wall_assets.iter()
+                .filter(|(x, _)| *x != 0)
+                .cloned()
+                .collect();
             
-            if has_organized_pairs {
-                // Use proper wall type selection for organized assets
-                if map.has_wall_below(x, y) {
-                    // Use wall_top sprites (even indices)
-                    let wall_top_indices: Vec<_> = (0..wall_assets.len()).step_by(2).collect();
-                    let selected_pair_idx = wall_top_indices[rng.random_range(0..wall_top_indices.len())];
-                    wall_assets[selected_pair_idx]
+            // Select appropriate wall type based on whether there's a wall below
+            if !map.has_wall_below(x, y) {
+                // No wall below = use wall_side sprite (exposed bottom edge)
+                if !wall_side_assets.is_empty() {
+                    wall_side_assets[rng.random_range(0..wall_side_assets.len())]
+                } else if !wall_top_assets.is_empty() {
+                    // Fallback to wall_top if no wall_side available
+                    wall_top_assets[rng.random_range(0..wall_top_assets.len())]
                 } else {
-                    // Use wall_side sprites (odd indices)
-                    let wall_side_indices: Vec<_> = (1..wall_assets.len()).step_by(2).collect();
-                    let selected_pair_idx = wall_side_indices[rng.random_range(0..wall_side_indices.len())];
-                    wall_assets[selected_pair_idx]
+                    // Ultimate fallback
+                    wall_assets[rng.random_range(0..wall_assets.len())]
                 }
             } else {
-                // For biomes without organized pairs, just use any wall asset
-                wall_assets[rng.random_range(0..wall_assets.len())]
+                // Wall below = use wall_top sprite (top surface of continuing wall)
+                if !wall_top_assets.is_empty() {
+                    wall_top_assets[rng.random_range(0..wall_top_assets.len())]
+                } else if !wall_side_assets.is_empty() {
+                    // Fallback to wall_side if no wall_top available
+                    wall_side_assets[rng.random_range(0..wall_side_assets.len())]
+                } else {
+                    // Ultimate fallback
+                    wall_assets[rng.random_range(0..wall_assets.len())]
+                }
             }
         },
         TileType::Water => {

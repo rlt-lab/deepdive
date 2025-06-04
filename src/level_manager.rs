@@ -93,13 +93,8 @@ pub fn handle_level_transitions(
             (GameMap::from_saved_data(saved_data), saved_visibility)
         } else {
             let mut map = GameMap::new(80, 50);
-            if event.new_level == 0 {
-                map.generate_drunkard_walk(300, 2);
-            } else {
-                let steps = 400 + (event.new_level * 10);
-                let walkers = 3 + (event.new_level / 5);
-                map.generate_drunkard_walk(steps, walkers);
-            }
+            // Use biome-aware generation
+            map.generate_with_biome(current_level.biome, event.new_level);
             map.place_stairs(event.new_level);
             // Create new visibility data for new map
             let new_visibility = vec![vec![TileVisibility::Unseen; map.width as usize]; map.height as usize];
@@ -206,15 +201,8 @@ pub fn handle_map_regeneration(
         // Generate new map
         let mut map = GameMap::new(80, 50);
         
-        if current_level.level == 0 {
-            // Use a basic drunkard walk for level 0 for testing - scaled for 80x50 map
-            map.generate_drunkard_walk(2000, 3);
-        } else {
-            // Scale parameters for 80x50 map (4000 tiles vs previous 600 tiles)
-            let steps = 2500 + (current_level.level * 50);
-            let walkers = 4 + (current_level.level / 3);
-            map.generate_drunkard_walk(steps, walkers);
-        }
+        // Use biome-aware generation
+        map.generate_with_biome(current_level.biome, current_level.level);
         
         map.place_stairs(current_level.level);
         

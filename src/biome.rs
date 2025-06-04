@@ -36,11 +36,15 @@ impl BiomeType {
             },
             BiomeType::Underglade => BiomeConfig {
                 name: "Underglade".to_string(),
-                description: "A lush and vibrant underground biome, filled with bioluminescent plants and fungi, with a soft, mossy floor.".to_string(),
-                allowed_floor_assets: vec![(2,0), (3,0), (2,1), (3,1)],
-                allowed_wall_assets: vec![(1,7), (2,7), (3,7)],
-                allowed_water_assets: vec![(0,6), (1,6), (2,6), (3,6)],
-                allowed_stair_assets: vec![(1,8), (2,8), (3,8)],
+                description: "Subterranean forest space with mossy ground, glowing flora, and primitive plant life.".to_string(),
+                allowed_floor_assets: vec![
+                    (1,7), (2,7), (3,7),        // Grass floors 
+                    (0,13), (1,13), (2,13), (3,13), // Green dirt floors
+                    (1,14), (2,14), (3,14),    // Green grass floors
+                ],
+                allowed_wall_assets: vec![(0,0), (1,0), (0,1), (1,1)], // Dirt and rough stone walls
+                allowed_water_assets: vec![(0,6)], // Dark grey water/blank floor for water areas
+                allowed_stair_assets: vec![(7,16), (8,16)], // Standard staircase assets
             },
             BiomeType::FungalDeep => BiomeConfig {
                 name: "Fungal Deep".to_string(),
@@ -52,11 +56,14 @@ impl BiomeType {
             },
             BiomeType::CinderGaol => BiomeConfig {
                 name: "Cinder Gaol".to_string(),
-                description: "A bleak and desolate biome, with a floor of ash and cinders, and walls of blackened stone, occasionally glowing with embers.".to_string(),
-                allowed_floor_assets: vec![(6,0), (7,0), (6,1), (7,1)],
-                allowed_wall_assets: vec![(1,7), (2,7), (3,7)],
-                allowed_water_assets: vec![(0,6), (1,6), (2,6), (3,6)],
-                allowed_stair_assets: vec![(1,8), (2,8), (3,8)],
+                description: "Ancient prison complex with charred stone walls and abandoned cells, now home to malevolent spirits.".to_string(),
+                allowed_floor_assets: vec![
+                    (0,15), (1,15), (2,15), (3,15), // Dark brown and bone floors for prison
+                    (0,11), (1,11), (2,11), (3,11), // Red floors for fire/brimstone theme
+                ], 
+                allowed_wall_assets: vec![(0,3), (1,3), (0,5), (1,5)], // Igneous and catacombs walls only
+                allowed_water_assets: vec![], // No water in prison
+                allowed_stair_assets: vec![(7,16), (8,16)], // Standard staircase assets
             },
             BiomeType::AbyssalHold => BiomeConfig {
                 name: "Abyssal Hold".to_string(),

@@ -240,8 +240,8 @@ impl MapGenerator for PrisonBlocksGenerator {
         
         // Phase 5: Post-processing to eliminate problematic parallel walls
         self.eliminate_parallel_walls(&mut tiles, width, height, &mut rng);
-
-        flatten_tiles(tiles, width, height)
+        
+        tiles
     }
 }
 
@@ -908,8 +908,8 @@ impl MapGenerator for BSPDungeonGenerator {
         
         // Add fortress-style features for prison theme
         self.add_fortress_features(&mut tiles, &rooms, width, height, params, &mut rng);
-
-        flatten_tiles(tiles, width, height)
+        
+        tiles
     }
 }
 
@@ -1436,8 +1436,8 @@ impl MapGenerator for VoronoiGenerator {
         
         // Add scattered individual clearings in dense areas
         self.add_individual_clearings(&mut tiles, width, height, &mut rng);
-
-        flatten_tiles(tiles, width, height)
+        
+        tiles
     }
 }
 

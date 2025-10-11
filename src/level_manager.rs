@@ -6,7 +6,6 @@ use crate::components::*;
 use crate::map::{GameMap, select_biome_asset};
 use crate::player::{LevelChangeEvent, RegenerateMapEvent, SpawnPosition};
 use crate::states::GameState;
-use crate::fov::{FovSettings, TileVisibilityState, TileVisibility};
 use crate::biome::BiomeType;
 
 pub struct LevelManagerPlugin;
@@ -30,20 +29,103 @@ impl Default for CurrentLevel {
     }
 }
 
-// Helper function to capture current tile visibility states
-pub fn capture_tile_visibility(
-    tile_query: &Query<(&TilePos, &TileVisibilityState)>,
-    map_width: u32,
-    map_height: u32,
-) -> Vec<Vec<TileVisibility>> {
-    let mut visibility_data = vec![vec![TileVisibility::Unseen; map_width as usize]; map_height as usize];
-    
-    for (tile_pos, visibility_state) in tile_query.iter() {
-        if tile_pos.x < map_width && tile_pos.y < map_height {
-            visibility_data[tile_pos.y as usize][tile_pos.x as usize] = visibility_state.visibility;
+// Helper function to spawn map tiles with biome-aware texture selection and tile pooling
+fn spawn_map_tiles(
+    commands: &mut Commands,
+    map: &GameMap,
+    biome: BiomeType,
+    saved_visibility: &std::collections::HashMap<(u32, u32), TileVisibility>,
+    tile_pool: &mut TilePool,
+    tile_index: &mut TileIndex,
+    assets: &GameAssets,
+) -> (Entity, TileStorage) {
+    let tilemap_entity = commands.spawn_empty().id();
+    let mut tile_storage = TileStorage::empty(TilemapSize { x: map.width, y: map.height });
+
+    let biome_config = biome.get_config();
+    let mut rng = rand::rng();
+    let mut reused_tiles = 0;
+    let mut new_tiles = 0;
+
+    for y in 0..map.height {
+        for x in 0..map.width {
+            let tile_type = map.get(x, y);
+            let (sprite_x, sprite_y) = select_biome_asset(&biome_config, tile_type, map, x, y, &mut rng);
+            let texture_index = sprite_position_to_index(sprite_x, sprite_y);
+
+            let tile_pos = TilePos { x, y };
+            let visibility = saved_visibility.get(&(x, y)).copied().unwrap_or(TileVisibility::Unseen);
+
+            // Try to reuse a tile from the pool
+            let tile_entity = if let Some(pooled_entity) = tile_pool.acquire() {
+                reused_tiles += 1;
+                commands.entity(pooled_entity).insert((
+                    TileBundle {
+                        position: tile_pos,
+                        tilemap_id: TilemapId(tilemap_entity),
+                        texture_index: TileTextureIndex(texture_index),
+                        ..Default::default()
+                    },
+                    MapTile { tile_type },
+                    TileVisibilityState { visibility },
+                ));
+                pooled_entity
+            } else {
+                new_tiles += 1;
+                commands
+                    .spawn((
+                        TileBundle {
+                            position: tile_pos,
+                            tilemap_id: TilemapId(tilemap_entity),
+                            texture_index: TileTextureIndex(texture_index),
+                            ..Default::default()
+                        },
+                        MapTile { tile_type },
+                        TileVisibilityState { visibility },
+                    ))
+                    .id()
+            };
+
+            tile_storage.set(&tile_pos, tile_entity);
+            tile_index.insert(x, y, tile_entity);
         }
     }
-    
+
+    println!("Tile spawning: {} reused from pool, {} newly spawned", reused_tiles, new_tiles);
+
+    let tile_size = TilemapTileSize { x: 32.0, y: 32.0 };
+    let grid_size = tile_size.into();
+    let map_type = TilemapType::default();
+
+    commands.entity(tilemap_entity).insert(TilemapBundle {
+        grid_size,
+        map_type,
+        size: TilemapSize { x: map.width, y: map.height },
+        storage: tile_storage.clone(),
+        texture: TilemapTexture::Single(assets.tiles.clone()),
+        tile_size,
+        anchor: TilemapAnchor::Center,
+        ..Default::default()
+    });
+
+    (tilemap_entity, tile_storage)
+}
+
+// Helper function to capture current tile visibility states (sparse storage)
+pub fn capture_tile_visibility(
+    tile_query: &Query<(&TilePos, &TileVisibilityState)>,
+    _map_width: u32,
+    _map_height: u32,
+) -> std::collections::HashMap<(u32, u32), TileVisibility> {
+    let mut visibility_data = std::collections::HashMap::new();
+
+    // Only store non-Unseen tiles for sparse storage
+    for (tile_pos, visibility_state) in tile_query.iter() {
+        if visibility_state.visibility != TileVisibility::Unseen {
+            visibility_data.insert((tile_pos.x, tile_pos.y), visibility_state.visibility);
+        }
+    }
+
     visibility_data
 }
 
@@ -51,7 +133,7 @@ pub fn handle_level_transitions(
     mut commands: Commands,
     mut level_change_events: EventReader<LevelChangeEvent>,
     mut current_level: ResMut<CurrentLevel>,
-    mut level_maps: ResMut<LevelMaps>, // changed to ResMut
+    mut level_maps: ResMut<LevelMaps>,
     assets: Res<GameAssets>,
     _sprite_db: Res<SpriteDatabase>,
     mut player_query: Query<&mut Player>,
@@ -60,6 +142,8 @@ pub fn handle_level_transitions(
     tile_pos_visibility_query: Query<(&TilePos, &TileVisibilityState)>,
     map: Option<Res<GameMap>>,
     mut fov_settings: ResMut<FovSettings>,
+    mut tile_index: ResMut<TileIndex>,
+    mut tile_pool: ResMut<TilePool>,
 ) {
     for event in level_change_events.read() {
         println!("Transitioning to level {}", event.new_level);
@@ -71,16 +155,21 @@ pub fn handle_level_transitions(
                 saved_data.tile_visibility = current_visibility;
             }
         }
-        
-        // Clear existing tilemap and all tile entities
+
+        // Clear existing tilemap
         for entity in tilemap_query.iter() {
             commands.entity(entity).despawn();
         }
-        
-        // Also clear any remaining tile visibility entities
+
+        // Return tile entities to pool after removing tilemap components
+        let mut returned_tiles = 0;
         for entity in tile_visibility_query.iter() {
-            commands.entity(entity).despawn();
+            // Remove all tilemap-specific components to prevent stale references
+            commands.entity(entity).remove::<(TilePos, TilemapId, TileTextureIndex, TileVisible, TileFlip)>();
+            tile_pool.release(entity);
+            returned_tiles += 1;
         }
+        println!("Returned {} tiles to pool (pool size: {})", returned_tiles, tile_pool.len());
         
         // Update current level
         current_level.level = event.new_level;
@@ -96,8 +185,8 @@ pub fn handle_level_transitions(
             // Use biome-aware generation
             map.generate_with_biome(current_level.biome, event.new_level);
             map.place_stairs(event.new_level);
-            // Create new visibility data for new map
-            let new_visibility = vec![vec![TileVisibility::Unseen; map.width as usize]; map.height as usize];
+            // Create new visibility data for new map (empty HashMap = all Unseen)
+            let new_visibility = std::collections::HashMap::new();
             // Save new map data with biome
             level_maps.maps.insert(event.new_level, map.to_saved_data(current_level.biome, new_visibility.clone()));
             (map, new_visibility)
@@ -121,55 +210,24 @@ pub fn handle_level_transitions(
             println!("Player spawned at ({}, {})", player.x, player.y);
         }
         
-        // Spawn the new map inline
-        let tilemap_entity = commands.spawn_empty().id();
-        let mut tile_storage = TileStorage::empty(TilemapSize { x: map.width, y: map.height });
-        
-        // Spawn tiles with biome-aware texture selection
-        let biome_config = current_level.biome.get_config();
-        let mut rng = rand::rng();
-        for y in 0..map.height {
-            for x in 0..map.width {
-                let tile_type = map.tiles[y as usize][x as usize];
-                let (sprite_x, sprite_y) = select_biome_asset(&biome_config, tile_type, &map, x, y, &mut rng);
-                let texture_index = sprite_position_to_index(sprite_x, sprite_y);
-                
-                let tile_pos = TilePos { x, y };
-                let tile_entity = commands
-                    .spawn((
-                        TileBundle {
-                            position: tile_pos,
-                            tilemap_id: TilemapId(tilemap_entity),
-                            texture_index: TileTextureIndex(texture_index),
-                            ..Default::default()
-                        },
-                        MapTile { tile_type },
-                        TileVisibilityState { visibility: saved_visibility[y as usize][x as usize] },
-                    ))
-                    .id();
-                tile_storage.set(&tile_pos, tile_entity);
-            }
-        }
-        
-        let tile_size = TilemapTileSize { x: 32.0, y: 32.0 };
-        let grid_size = tile_size.into();
-        let map_type = TilemapType::default();
-        
-        commands.entity(tilemap_entity).insert(TilemapBundle {
-            grid_size,
-            map_type,
-            size: TilemapSize { x: map.width, y: map.height },
-            storage: tile_storage,
-            texture: TilemapTexture::Single(assets.tiles.clone()),
-            tile_size,
-            anchor: TilemapAnchor::Center,
-            ..Default::default()
-        });
-        
+        // Clear and rebuild tile index
+        tile_index.clear();
+
+        // Spawn the new map using the helper function
+        spawn_map_tiles(&mut commands, &map, current_level.biome, &saved_visibility, &mut tile_pool, &mut tile_index, &assets);
+
         commands.insert_resource(map);
         
-        // Trigger FOV recalculation for new level
+        // Trigger FOV recalculation for new level and invalidate LOS cache
         fov_settings.needs_recalculation = true;
+        fov_settings.los_cache.clear();
+        if fov_settings.cache_hits > 0 || fov_settings.cache_misses > 0 {
+            let hit_rate = fov_settings.cache_hits as f32 / (fov_settings.cache_hits + fov_settings.cache_misses) as f32 * 100.0;
+            println!("LOS cache stats - Hits: {}, Misses: {}, Hit rate: {:.1}%",
+                    fov_settings.cache_hits, fov_settings.cache_misses, hit_rate);
+        }
+        fov_settings.cache_hits = 0;
+        fov_settings.cache_misses = 0;
     }
 }
 
@@ -179,23 +237,27 @@ pub fn handle_map_regeneration(
     current_level: Res<CurrentLevel>,
     mut level_maps: ResMut<LevelMaps>,
     assets: Res<GameAssets>,
-    sprite_db: Res<SpriteDatabase>,
+    _sprite_db: Res<SpriteDatabase>,
     mut player_query: Query<&mut Player>,
     tilemap_query: Query<Entity, With<TileStorage>>,
     tile_visibility_query: Query<Entity, With<TileVisibilityState>>,
     mut fov_settings: ResMut<FovSettings>,
+    mut tile_index: ResMut<TileIndex>,
+    mut tile_pool: ResMut<TilePool>,
 ) {
     for _event in regenerate_events.read() {
         println!("Regenerating level {}", current_level.level);
-        
-        // Clear existing tilemap and all tile entities
+
+        // Clear existing tilemap
         for entity in tilemap_query.iter() {
             commands.entity(entity).despawn();
         }
-        
-        // Also clear any remaining tile visibility entities
+
+        // Return tile entities to pool after removing tilemap components
         for entity in tile_visibility_query.iter() {
-            commands.entity(entity).despawn();
+            // Remove all tilemap-specific components to prevent stale references
+            commands.entity(entity).remove::<(TilePos, TilemapId, TileTextureIndex, TileVisible, TileFlip)>();
+            tile_pool.release(entity);
         }
         
         // Generate new map
@@ -223,14 +285,14 @@ pub fn handle_map_regeneration(
                         if x >= 0 && x < map.width as i32 && y >= 0 && y < map.height as i32 {
                             let ux = x as u32;
                             let uy = y as u32;
-                            if map.tiles[uy as usize][ux as usize] == TileType::Floor {
+                            if map.get(ux, uy) == TileType::Floor {
                                 spawn_pos = (ux, uy);
                                 break;
                             }
                         }
                     }
                 }
-                if map.tiles[spawn_pos.1 as usize][spawn_pos.0 as usize] == TileType::Floor {
+                if map.get(spawn_pos.0, spawn_pos.1) == TileType::Floor {
                     break;
                 }
             }
@@ -241,58 +303,27 @@ pub fn handle_map_regeneration(
             println!("Player repositioned at ({}, {})", player.x, player.y);
         }
         
-        // Save the new map
-        let new_visibility = vec![vec![TileVisibility::Unseen; map.width as usize]; map.height as usize];
+        // Save the new map (empty HashMap = all Unseen)
+        let new_visibility = std::collections::HashMap::new();
         level_maps.maps.insert(current_level.level, map.to_saved_data(current_level.biome, new_visibility.clone()));
-        
-        // Spawn the new map inline
-        let tilemap_entity = commands.spawn_empty().id();
-        let mut tile_storage = TileStorage::empty(TilemapSize { x: map.width, y: map.height });
-        
-        // Spawn tiles with biome-aware texture selection
-        let biome_config = current_level.biome.get_config();
-        let mut rng = rand::rng();
-        for y in 0..map.height {
-            for x in 0..map.width {
-                let tile_type = map.tiles[y as usize][x as usize];
-                let (sprite_x, sprite_y) = select_biome_asset(&biome_config, tile_type, &map, x, y, &mut rng);
-                let texture_index = sprite_position_to_index(sprite_x, sprite_y);
-                
-                let tile_pos = TilePos { x, y };
-                let tile_entity = commands
-                    .spawn((
-                        TileBundle {
-                            position: tile_pos,
-                            tilemap_id: TilemapId(tilemap_entity),
-                            texture_index: TileTextureIndex(texture_index),
-                            ..Default::default()
-                        },
-                        MapTile { tile_type },
-                        TileVisibilityState { visibility: new_visibility[y as usize][x as usize] },
-                    ))
-                    .id();
-                tile_storage.set(&tile_pos, tile_entity);
-            }
-        }
-        
-        let tile_size = TilemapTileSize { x: 32.0, y: 32.0 };
-        let grid_size = tile_size.into();
-        let map_type = TilemapType::default();
-        
-        commands.entity(tilemap_entity).insert(TilemapBundle {
-            grid_size,
-            map_type,
-            size: TilemapSize { x: map.width, y: map.height },
-            storage: tile_storage,
-            texture: TilemapTexture::Single(assets.tiles.clone()),
-            tile_size,
-            anchor: TilemapAnchor::Center,
-            ..Default::default()
-        });
-        
+
+        // Clear and rebuild tile index
+        tile_index.clear();
+
+        // Spawn the new map using the helper function
+        spawn_map_tiles(&mut commands, &map, current_level.biome, &new_visibility, &mut tile_pool, &mut tile_index, &assets);
+
         commands.insert_resource(map);
-        
-        // Trigger FOV recalculation for regenerated map
+
+        // Trigger FOV recalculation for regenerated map and invalidate LOS cache
         fov_settings.needs_recalculation = true;
+        fov_settings.los_cache.clear();
+        if fov_settings.cache_hits > 0 || fov_settings.cache_misses > 0 {
+            let hit_rate = fov_settings.cache_hits as f32 / (fov_settings.cache_hits + fov_settings.cache_misses) as f32 * 100.0;
+            println!("LOS cache stats - Hits: {}, Misses: {}, Hit rate: {:.1}%",
+                    fov_settings.cache_hits, fov_settings.cache_misses, hit_rate);
+        }
+        fov_settings.cache_hits = 0;
+        fov_settings.cache_misses = 0;
     }
 }

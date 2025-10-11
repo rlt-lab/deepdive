@@ -1,11 +1,8 @@
 use bevy::prelude::*;
 
 use crate::assets::GameAssets;
-use crate::components::CurrentLevel;
+use crate::components::{CurrentLevel, DepthIndicator};
 use crate::states::GameState;
-
-#[derive(Component)]
-pub struct DepthIndicator;
 
 pub struct UiPlugin;
 

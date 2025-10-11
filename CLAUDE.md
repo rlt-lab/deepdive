@@ -1,0 +1,1 @@
+- use mcp server context7 for referencing the latest documentation for Bevy.

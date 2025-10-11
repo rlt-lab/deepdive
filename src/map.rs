@@ -4,8 +4,7 @@ use rand::Rng;
 use std::collections::HashSet;
 
 use crate::assets::{GameAssets, SpriteDatabase, sprite_position_to_index};
-use crate::components::{TileType, MapTile, SavedMapData, CurrentLevel, LevelMaps};
-use crate::fov::{TileVisibilityState, TileVisibility};
+use crate::components::{TileType, MapTile, SavedMapData, CurrentLevel, LevelMaps, TileVisibilityState, TileVisibility, TileIndex};
 use crate::biome::{BiomeType, BiomeConfig};
 use crate::map_generation::{MapGenParams, get_generator};
 
@@ -13,21 +12,40 @@ use crate::map_generation::{MapGenParams, get_generator};
 pub struct GameMap {
     pub width: u32,
     pub height: u32,
-    pub tiles: Vec<Vec<TileType>>,
+    pub tiles: Vec<TileType>,
     pub stair_up_pos: Option<(u32, u32)>,
     pub stair_down_pos: Option<(u32, u32)>,
 }
 
 impl GameMap {
     pub fn new(width: u32, height: u32) -> Self {
-        let tiles = vec![vec![TileType::Wall; width as usize]; height as usize];
-        Self { 
-            width, 
-            height, 
+        let tiles = vec![TileType::Wall; (width * height) as usize];
+        Self {
+            width,
+            height,
             tiles,
             stair_up_pos: None,
             stair_down_pos: None,
         }
+    }
+
+    // Helper method for index calculation
+    #[inline]
+    fn idx(&self, x: u32, y: u32) -> usize {
+        (y * self.width + x) as usize
+    }
+
+    // Helper method to get tile at position
+    #[inline]
+    pub fn get(&self, x: u32, y: u32) -> TileType {
+        self.tiles[self.idx(x, y)]
+    }
+
+    // Helper method to set tile at position
+    #[inline]
+    pub fn set(&mut self, x: u32, y: u32, tile: TileType) {
+        let idx = self.idx(x, y);
+        self.tiles[idx] = tile;
     }
     
     // Helper function to check if a position is within the oblong circle boundary
@@ -55,82 +73,82 @@ impl GameMap {
         // Ensure connectivity for all generation types
         self.ensure_connectivity();
     }
-    
+
     fn ensure_connectivity(&mut self) {
         let carved_positions = self.get_floor_positions_set();
         self.connect_disconnected_areas(&carved_positions);
-        
+
         // Final cleanup: ensure all tiles outside the ellipse are walls
         for y in 0..self.height {
             for x in 0..self.width {
                 if !self.is_within_ellipse(x, y) {
-                    self.tiles[y as usize][x as usize] = TileType::Wall;
+                    self.set(x, y, TileType::Wall);
                 }
             }
         }
     }
-    
+
     fn get_floor_positions_set(&self) -> HashSet<(u32, u32)> {
         let mut positions = HashSet::new();
         for y in 0..self.height {
             for x in 0..self.width {
-                if self.tiles[y as usize][x as usize] == TileType::Floor {
+                if self.get(x, y) == TileType::Floor {
                     positions.insert((x, y));
                 }
             }
         }
         positions
     }
-    
+
     pub fn generate_simple_room(&mut self) {
         // Fill with walls
         for y in 0..self.height {
             for x in 0..self.width {
-                self.tiles[y as usize][x as usize] = TileType::Wall;
+                self.set(x, y, TileType::Wall);
             }
         }
-        
+
         // Create room interior (leave 1-tile border)
         for y in 1..self.height-1 {
             for x in 1..self.width-1 {
-                self.tiles[y as usize][x as usize] = TileType::Floor;
+                self.set(x, y, TileType::Floor);
             }
         }
     }
     
     pub fn generate_drunkard_walk(&mut self, steps: u32, num_walkers: u32) {
         let mut rng = rand::rng();
-        
+
         // Start with all walls
         for y in 0..self.height {
             for x in 0..self.width {
-                self.tiles[y as usize][x as usize] = TileType::Wall;
+                self.set(x, y, TileType::Wall);
             }
         }
-        
+
         let mut carved_positions = HashSet::new();
-        
+
         // Multiple walkers for more interesting caves
         for _ in 0..num_walkers {
             let mut x = self.width / 2;
             let mut y = self.height / 2;
-            
+
             // Ensure starting position is within ellipse (it should be since center is always inside)
             if !self.is_within_ellipse(x, y) {
                 // Fallback to exact center if needed
                 x = self.width / 2;
                 y = self.height / 2;
             }
-            
+
             // Carve the starting position
-            self.tiles[y as usize][x as usize] = TileType::Floor;
+            self.set(x, y, TileType::Floor);
             carved_positions.insert((x, y));
-            
+
             // Perform drunkard walk
             for _ in 0..steps {
                 // Choose random direction (0=up, 1=right, 2=down, 3=left)
                 let direction = rng.random_range(0..4);
-                
+
                 let (new_x, new_y) = match direction {
                     0 if y > 0 => (x, y - 1),
                     1 if x < self.width - 1 => (x + 1, y),
@@ -138,28 +156,28 @@ impl GameMap {
                     3 if x > 0 => (x - 1, y),
                     _ => (x, y), // Stay in place if at boundary
                 };
-                
+
                 // Only move if the new position is within the elliptical boundary
                 if self.is_within_ellipse(new_x, new_y) {
                     x = new_x;
                     y = new_y;
-                    
+
                     // Carve the floor
-                    self.tiles[y as usize][x as usize] = TileType::Floor;
+                    self.set(x, y, TileType::Floor);
                     carved_positions.insert((x, y));
                 }
                 // If outside ellipse, stay at current position but don't carve
             }
         }
-        
+
         // Ensure all carved areas are connected
         self.connect_disconnected_areas(&carved_positions);
-        
+
         // Final cleanup: ensure all tiles outside the ellipse are walls
         for y in 0..self.height {
             for x in 0..self.width {
                 if !self.is_within_ellipse(x, y) {
-                    self.tiles[y as usize][x as usize] = TileType::Wall;
+                    self.set(x, y, TileType::Wall);
                 }
             }
         }
@@ -253,7 +271,7 @@ impl GameMap {
         let mut y = start.1 as i32;
         let target_x = end.0 as i32;
         let target_y = end.1 as i32;
-        
+
         // Simple L-shaped tunnel
         while x != target_x {
             if x < target_x {
@@ -264,11 +282,11 @@ impl GameMap {
             if x >= 0 && x < self.width as i32 && y >= 0 && y < self.height as i32 {
                 // Only carve if within ellipse boundary
                 if self.is_within_ellipse(x as u32, y as u32) {
-                    self.tiles[y as usize][x as usize] = TileType::Floor;
+                    self.set(x as u32, y as u32, TileType::Floor);
                 }
             }
         }
-        
+
         while y != target_y {
             if y < target_y {
                 y += 1;
@@ -278,7 +296,7 @@ impl GameMap {
             if x >= 0 && x < self.width as i32 && y >= 0 && y < self.height as i32 {
                 // Only carve if within ellipse boundary
                 if self.is_within_ellipse(x as u32, y as u32) {
-                    self.tiles[y as usize][x as usize] = TileType::Floor;
+                    self.set(x as u32, y as u32, TileType::Floor);
                 }
             }
         }
@@ -287,51 +305,51 @@ impl GameMap {
     pub fn place_stairs(&mut self, level: u32) {
         let mut rng = rand::rng();
         let floor_positions: Vec<(u32, u32)> = self.get_floor_positions();
-        
+
         if floor_positions.is_empty() {
             return;
         }
-        
+
         // Place stairs up (except on level 0)
         if level > 0 {
             let pos_idx = rng.random_range(0..floor_positions.len());
             let (x, y) = floor_positions[pos_idx];
-            self.tiles[y as usize][x as usize] = TileType::StairUp;
+            self.set(x, y, TileType::StairUp);
             self.stair_up_pos = Some((x, y));
         }
-        
+
         // Place stairs down (except on level 50)
         if level < 50 {
             let mut attempts = 0;
             loop {
                 let pos_idx = rng.random_range(0..floor_positions.len());
                 let (x, y) = floor_positions[pos_idx];
-                
+
                 // Make sure stairs aren't too close to each other
                 if self.stair_up_pos.map_or(true, |(ux, uy)| {
                     ((x as i32 - ux as i32).abs() + (y as i32 - uy as i32).abs()) > 5
                 }) {
-                    self.tiles[y as usize][x as usize] = TileType::StairDown;
+                    self.set(x, y, TileType::StairDown);
                     self.stair_down_pos = Some((x, y));
                     break;
                 }
-                
+
                 attempts += 1;
                 if attempts > 100 {
                     // Fallback: place anywhere
-                    self.tiles[y as usize][x as usize] = TileType::StairDown;
+                    self.set(x, y, TileType::StairDown);
                     self.stair_down_pos = Some((x, y));
                     break;
                 }
             }
         }
     }
-    
+
     fn get_floor_positions(&self) -> Vec<(u32, u32)> {
         let mut positions = Vec::new();
         for y in 0..self.height {
             for x in 0..self.width {
-                if self.tiles[y as usize][x as usize] == TileType::Floor {
+                if self.get(x, y) == TileType::Floor {
                     positions.push((x, y));
                 }
             }
@@ -347,7 +365,7 @@ impl GameMap {
         map
     }
 
-    pub fn to_saved_data(&self, biome: BiomeType, tile_visibility: Vec<Vec<TileVisibility>>) -> SavedMapData {
+    pub fn to_saved_data(&self, biome: BiomeType, tile_visibility: std::collections::HashMap<(u32, u32), TileVisibility>) -> SavedMapData {
         SavedMapData {
             width: self.width,
             height: self.height,
@@ -364,7 +382,7 @@ impl GameMap {
         if y == 0 {
             return false; // Bottom edge, no tile below
         }
-        self.tiles[(y - 1) as usize][x as usize] == TileType::Wall
+        self.get(x, y - 1) == TileType::Wall
     }
 }
 
@@ -496,6 +514,7 @@ pub fn spawn_map(
     _sprite_db: Res<SpriteDatabase>,
     level_maps: Res<LevelMaps>,
     current_level: Res<CurrentLevel>,
+    mut tile_index: ResMut<TileIndex>,
 ) {
     // Biome-aware config and RNG
     let biome_config = current_level.biome.get_config();
@@ -507,7 +526,7 @@ pub fn spawn_map(
     } else {
         // Generate new map
         let mut map = GameMap::new(80, 50); // Larger maps for drunkard walk
-        
+
         if current_level.level == 0 {
             // Use a basic drunkard walk for level 0 for testing - scaled for 80x50 map
             map.generate_drunkard_walk(2000, 3);
@@ -517,18 +536,21 @@ pub fn spawn_map(
             let walkers = 4 + (current_level.level / 3); // More walkers for deeper levels
             map.generate_drunkard_walk(steps, walkers);
         }
-        
+
         map.place_stairs(current_level.level);
         map
     };
-    
+
+    // Clear and rebuild tile index
+    tile_index.clear();
+
     let tilemap_entity = commands.spawn_empty().id();
     let mut tile_storage = TileStorage::empty(TilemapSize { x: map.width, y: map.height });
 
     // Spawn tiles with biome-aware asset selection
     for y in 0..map.height {
         for x in 0..map.width {
-            let tile_type = map.tiles[y as usize][x as usize];
+            let tile_type = map.get(x, y);
             // Select sprite position based on biome configuration
             let (sprite_x, sprite_y) = select_biome_asset(&biome_config, tile_type, &map, x, y, &mut rng);
             let texture_index = sprite_position_to_index(sprite_x, sprite_y);
@@ -547,6 +569,8 @@ pub fn spawn_map(
                 ))
                 .id();
             tile_storage.set(&tile_pos, tile_entity);
+            // Add to tile index for O(1) lookups
+            tile_index.insert(x, y, tile_entity);
         }
     }
     

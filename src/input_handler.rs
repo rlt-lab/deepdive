@@ -1,11 +1,11 @@
 use bevy::prelude::*;
 use bevy_ecs_tilemap::prelude::*;
 
-use crate::components::{Player, MovementInput, MovementAnimation, Autoexplore, TileVisibilityState, CurrentLevel, LevelMaps};
+use crate::components::{Player, MovementInput, MovementAnimation, Autoexplore, AutoMoveToStair, TileVisibilityState, TileVisibility, TileType, CurrentLevel, LevelMaps};
 use crate::map::GameMap;
 use crate::biome::BiomeType;
 use crate::level_manager::capture_tile_visibility;
-use crate::player::count_unexplored_tiles;
+use crate::player::{count_unexplored_tiles, find_path};
 
 // ============================================================================
 // INPUT EVENTS
@@ -253,22 +253,24 @@ pub fn handle_movement_input(
 // ============================================================================
 
 pub fn handle_stair_interaction(
+    mut commands: Commands,
     keyboard_input: Res<ButtonInput<KeyCode>>,
     key_bindings: Res<KeyBindings>,
-    player_query: Query<&Player>,
+    player_query: Query<(Entity, &Player, Option<&Autoexplore>, Option<&AutoMoveToStair>)>,
     tile_visibility_query: Query<(&TilePos, &TileVisibilityState)>,
     map: Res<GameMap>,
     current_level: Res<CurrentLevel>,
     mut level_maps: ResMut<LevelMaps>,
     mut level_change_events: EventWriter<LevelChangeEvent>,
 ) {
-    if let Ok(player) = player_query.single() {
+    if let Ok((entity, player, autoexplore_opt, auto_move_opt)) = player_query.single() {
         let tile_type = map.get(player.x, player.y);
         
-        // Check for move up (S key) - go up stairs
+        // Check for move up (S key)
         if key_bindings.is_just_pressed(&key_bindings.stair_up, &keyboard_input) {
-            match tile_type {
-                crate::components::TileType::StairUp if current_level.level > 0 => {
+            // If standing on up stairs, use them
+            if tile_type == TileType::StairUp {
+                if current_level.level > 0 {
                     println!("Going up to level {}", current_level.level - 1);
                     // Save current map with tile visibility
                     let current_visibility = capture_tile_visibility(&tile_visibility_query, map.width, map.height);
@@ -278,20 +280,47 @@ pub fn handle_stair_interaction(
                         new_level: current_level.level - 1,
                         spawn_position: SpawnPosition::StairDown,
                     });
-                },
-                crate::components::TileType::StairUp => {
+                } else {
                     println!("Cannot go up from the surface!");
-                },
-                _ => {
-                    println!("No up stairwell here. Find stairs going up to ascend.");
+                }
+            } else {
+                // Not on stairs - try to auto-move to nearest discovered up stairwell
+                if let Some(nearest_stair) = find_nearest_discovered_stairwell(
+                    &player,
+                    TileType::StairUp,
+                    &tile_visibility_query,
+                    &map,
+                ) {
+                    let path = find_path((player.x, player.y), nearest_stair, &map);
+                    if !path.is_empty() {
+                        // Cancel any existing auto-movement
+                        if autoexplore_opt.is_some() {
+                            commands.entity(entity).remove::<Autoexplore>();
+                        }
+                        if auto_move_opt.is_some() {
+                            commands.entity(entity).remove::<AutoMoveToStair>();
+                        }
+                        
+                        println!("Auto-moving to discovered up stairwell at ({}, {})", nearest_stair.0, nearest_stair.1);
+                        commands.entity(entity).insert(AutoMoveToStair::new(
+                            nearest_stair,
+                            path,
+                            TileType::StairUp,
+                        ));
+                    } else {
+                        println!("No path to up stairwell!");
+                    }
+                } else {
+                    println!("No discovered up stairwell found. Explore to find stairs.");
                 }
             }
         }
         
-        // Check for move down (X key) - go down stairs
+        // Check for move down (X key)
         if key_bindings.is_just_pressed(&key_bindings.stair_down, &keyboard_input) {
-            match tile_type {
-                crate::components::TileType::StairDown if current_level.level < 50 => {
+            // If standing on down stairs, use them
+            if tile_type == TileType::StairDown {
+                if current_level.level < 50 {
                     println!("Going down to level {}", current_level.level + 1);
                     // Save current map with tile visibility
                     let current_visibility = capture_tile_visibility(&tile_visibility_query, map.width, map.height);
@@ -301,12 +330,38 @@ pub fn handle_stair_interaction(
                         new_level: current_level.level + 1,
                         spawn_position: SpawnPosition::StairUp,
                     });
-                },
-                crate::components::TileType::StairDown => {
+                } else {
                     println!("Cannot go deeper - you've reached the bottom!");
-                },
-                _ => {
-                    println!("No down stairwell here. Find stairs going down to descend.");
+                }
+            } else {
+                // Not on stairs - try to auto-move to nearest discovered down stairwell
+                if let Some(nearest_stair) = find_nearest_discovered_stairwell(
+                    &player,
+                    TileType::StairDown,
+                    &tile_visibility_query,
+                    &map,
+                ) {
+                    let path = find_path((player.x, player.y), nearest_stair, &map);
+                    if !path.is_empty() {
+                        // Cancel any existing auto-movement
+                        if autoexplore_opt.is_some() {
+                            commands.entity(entity).remove::<Autoexplore>();
+                        }
+                        if auto_move_opt.is_some() {
+                            commands.entity(entity).remove::<AutoMoveToStair>();
+                        }
+                        
+                        println!("Auto-moving to discovered down stairwell at ({}, {})", nearest_stair.0, nearest_stair.1);
+                        commands.entity(entity).insert(AutoMoveToStair::new(
+                            nearest_stair,
+                            path,
+                            TileType::StairDown,
+                        ));
+                    } else {
+                        println!("No path to down stairwell!");
+                    }
+                } else {
+                    println!("No discovered down stairwell found. Explore to find stairs.");
                 }
             }
         }
@@ -397,5 +452,113 @@ pub fn debug_biome_cycling(
         println!("Current biome: {:?}", current_level.biome);
         println!("Regenerating map with new biome...");
         regenerate_events.write(RegenerateMapEvent);
+    }
+}
+// Helper function to find nearest discovered stairwell of a specific type
+fn find_nearest_discovered_stairwell(
+    player: &Player,
+    stair_type: TileType,
+    tile_visibility_query: &Query<(&TilePos, &TileVisibilityState)>,
+    map: &GameMap,
+) -> Option<(u32, u32)> {
+    let mut nearest_stair: Option<(u32, u32)> = None;
+    let mut min_distance = f32::INFINITY;
+
+    // Search all tiles for discovered stairs of the requested type
+    for y in 0..map.height {
+        for x in 0..map.width {
+            // Check if this tile is the stair type we're looking for
+            if map.get(x, y) != stair_type {
+                continue;
+            }
+
+            // Check if this stairwell has been discovered (Visible or Seen)
+            let mut is_discovered = false;
+            for (tile_pos, visibility_state) in tile_visibility_query.iter() {
+                if tile_pos.x == x && tile_pos.y == y {
+                    is_discovered = visibility_state.visibility == TileVisibility::Visible
+                        || visibility_state.visibility == TileVisibility::Seen;
+                    break;
+                }
+            }
+
+            if !is_discovered {
+                continue;
+            }
+
+            // Calculate Manhattan distance
+            let distance = ((x as i32 - player.x as i32).abs() + (y as i32 - player.y as i32).abs()) as f32;
+
+            if distance < min_distance {
+                min_distance = distance;
+                nearest_stair = Some((x, y));
+            }
+        }
+    }
+
+    nearest_stair
+}
+
+// System to handle auto-movement to discovered stairwells
+pub fn run_auto_move_to_stair(
+    mut commands: Commands,
+    time: Res<Time>,
+    mut player_query: Query<(Entity, &mut Player, &mut AutoMoveToStair, &mut Sprite), Without<MovementAnimation>>,
+    map: Res<GameMap>,
+) {
+    if let Ok((entity, mut player, mut auto_move, mut sprite)) = player_query.single_mut() {
+        // Tick timer
+        auto_move.move_timer.tick(time.delta());
+
+        if !auto_move.move_timer.just_finished() {
+            return;
+        }
+
+        // Get next step in path
+        if let Some(next_pos) = auto_move.path.first().copied() {
+            // Check if we can move to next position
+            if map.get(next_pos.0, next_pos.1) != TileType::Wall {
+                // Calculate animation positions
+                let start_world_x = (player.x as f32 - (map.width as f32 / 2.0 - 0.5)) * 32.0;
+                let start_world_y = (player.y as f32 - (map.height as f32 / 2.0 - 0.5)) * 32.0;
+                let end_world_x = (next_pos.0 as f32 - (map.width as f32 / 2.0 - 0.5)) * 32.0;
+                let end_world_y = (next_pos.1 as f32 - (map.height as f32 / 2.0 - 0.5)) * 32.0;
+
+                // Update sprite facing
+                if next_pos.0 < player.x {
+                    sprite.flip_x = false; // Moving left
+                } else if next_pos.0 > player.x {
+                    sprite.flip_x = true; // Moving right
+                }
+
+                // Move player
+                player.x = next_pos.0;
+                player.y = next_pos.1;
+
+                // Add animation
+                commands.entity(entity).insert(MovementAnimation {
+                    start_pos: Vec3::new(start_world_x, start_world_y, 1.0),
+                    end_pos: Vec3::new(end_world_x, end_world_y, 1.0),
+                    timer: Timer::from_seconds(0.05, TimerMode::Once), // Fast movement
+                });
+
+                // Remove this step from path
+                auto_move.path.remove(0);
+            } else {
+                // Path blocked, cancel auto-move
+                println!("Path to stairwell blocked!");
+                commands.entity(entity).remove::<AutoMoveToStair>();
+            }
+        } else {
+            // Reached destination
+            let current_tile = map.get(player.x, player.y);
+            if current_tile == auto_move.stair_type {
+                println!("Reached {} stairwell! Press {} to use it.", 
+                    if auto_move.stair_type == TileType::StairUp { "up" } else { "down" },
+                    if auto_move.stair_type == TileType::StairUp { "S" } else { "X" }
+                );
+            }
+            commands.entity(entity).remove::<AutoMoveToStair>();
+        }
     }
 }

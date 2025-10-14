@@ -62,6 +62,26 @@ impl Default for Autoexplore {
     }
 }
 
+#[derive(Component, Reflect)]
+#[reflect(Component)]
+pub struct AutoMoveToStair {
+    pub path: Vec<(u32, u32)>,
+    pub target: (u32, u32),
+    pub stair_type: TileType,
+    pub move_timer: Timer,
+}
+
+impl AutoMoveToStair {
+    pub fn new(target: (u32, u32), path: Vec<(u32, u32)>, stair_type: TileType) -> Self {
+        Self {
+            path,
+            target,
+            stair_type,
+            move_timer: Timer::from_seconds(0.05, TimerMode::Repeating), // Fast movement to stairs
+        }
+    }
+}
+
 // ============================================================================
 // MAP COMPONENTS
 // ============================================================================

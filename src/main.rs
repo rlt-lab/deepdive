@@ -70,6 +70,7 @@ fn main() {
         .register_type::<MovementAnimation>()
         .register_type::<MovementInput>()
         .register_type::<Autoexplore>()
+        .register_type::<AutoMoveToStair>()
         .register_type::<MapTile>()
         .register_type::<TileVisibility>()
         .register_type::<TileVisibilityState>()
@@ -110,6 +111,7 @@ fn main() {
             handle_stair_interaction,
             toggle_autoexplore,
             run_autoexplore,
+            run_auto_move_to_stair,
         ).in_set(GameplaySet::Input))
         .add_systems(Update, (
             animate_movement,

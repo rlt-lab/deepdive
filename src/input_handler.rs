@@ -52,8 +52,9 @@ pub struct KeyBindings {
     pub move_left: Vec<KeyCode>,
     pub move_right: Vec<KeyCode>,
     
-    // Interaction keys
-    pub use_stairs: Vec<KeyCode>,
+    // Level transition keys
+    pub stair_up: Vec<KeyCode>,      // S key - go up stairs
+    pub stair_down: Vec<KeyCode>,    // X key - go down stairs
     
     // Autoexplore keys
     pub toggle_autoexplore: Vec<KeyCode>,
@@ -75,8 +76,9 @@ impl Default for KeyBindings {
             move_left: vec![KeyCode::ArrowLeft],
             move_right: vec![KeyCode::ArrowRight],
             
-            // Interaction
-            use_stairs: vec![KeyCode::KeyE],
+            // Level transitions
+            stair_up: vec![KeyCode::KeyS],      // S - go up stairs
+            stair_down: vec![KeyCode::KeyX],    // X - go down stairs
             
             // Autoexplore
             toggle_autoexplore: vec![KeyCode::KeyA],
@@ -260,10 +262,11 @@ pub fn handle_stair_interaction(
     mut level_maps: ResMut<LevelMaps>,
     mut level_change_events: EventWriter<LevelChangeEvent>,
 ) {
-    if key_bindings.is_just_pressed(&key_bindings.use_stairs, &keyboard_input) {
-        if let Ok(player) = player_query.single() {
-            let tile_type = map.get(player.x, player.y);
-
+    if let Ok(player) = player_query.single() {
+        let tile_type = map.get(player.x, player.y);
+        
+        // Check for move up (S key) - go up stairs
+        if key_bindings.is_just_pressed(&key_bindings.stair_up, &keyboard_input) {
             match tile_type {
                 crate::components::TileType::StairUp if current_level.level > 0 => {
                     println!("Going up to level {}", current_level.level - 1);
@@ -276,6 +279,18 @@ pub fn handle_stair_interaction(
                         spawn_position: SpawnPosition::StairDown,
                     });
                 },
+                crate::components::TileType::StairUp => {
+                    println!("Cannot go up from the surface!");
+                },
+                _ => {
+                    println!("No up stairwell here. Find stairs going up to ascend.");
+                }
+            }
+        }
+        
+        // Check for move down (X key) - go down stairs
+        if key_bindings.is_just_pressed(&key_bindings.stair_down, &keyboard_input) {
+            match tile_type {
                 crate::components::TileType::StairDown if current_level.level < 50 => {
                     println!("Going down to level {}", current_level.level + 1);
                     // Save current map with tile visibility
@@ -287,14 +302,11 @@ pub fn handle_stair_interaction(
                         spawn_position: SpawnPosition::StairUp,
                     });
                 },
-                crate::components::TileType::StairUp => {
-                    println!("Cannot go up from the surface!");
-                },
                 crate::components::TileType::StairDown => {
                     println!("Cannot go deeper - you've reached the bottom!");
                 },
                 _ => {
-                    println!("No stairs here to use.");
+                    println!("No down stairwell here. Find stairs going down to descend.");
                 }
             }
         }

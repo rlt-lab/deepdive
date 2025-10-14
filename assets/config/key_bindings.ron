@@ -11,9 +11,14 @@ KeyBindings(
         right: [ArrowRight],
     ),
     
+    // Level transition keys
+    level_transition: LevelTransition(
+        move_up: [KeyS],      // Go up stairs / ascend
+        move_down: [KeyX],    // Go down stairs / descend
+    ),
+    
     // Interaction keys
     interaction: Interaction(
-        use_stairs: [KeyE],
         pickup_item: [],  // Future: item pickup
         interact: [],     // Future: talk to NPCs, open doors
     ),

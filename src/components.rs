@@ -57,7 +57,7 @@ impl Default for Autoexplore {
             active: false,
             path: Vec::new(),
             target: None,
-            move_timer: Timer::from_seconds(0.05, TimerMode::Repeating), // Fast auto-movement (same as auto-move to stairs)
+            move_timer: Timer::from_seconds(0.001, TimerMode::Repeating), // Blazing fast auto-movement
         }
     }
 }
@@ -77,7 +77,7 @@ impl AutoMoveToStair {
             path,
             target,
             stair_type,
-            move_timer: Timer::from_seconds(0.05, TimerMode::Repeating), // Fast auto-movement (same as autoexplore)
+            move_timer: Timer::from_seconds(0.001, TimerMode::Repeating), // Blazing fast auto-movement (same as autoexplore)
         }
     }
 }

@@ -25,8 +25,8 @@ KeyBindings(
 
     // Autoexplore keys
     autoexplore: Autoexplore(
-        toggle: [KeyA],          // Toggle autoexplore
-        cancel: [Escape],
+        toggle: [KeyA],          // Toggle autoexplore (also cancels if active)
+        cancel: [Escape, Space], // Cancel autoexplore
     ),
 
     // Debug keys (require Shift modifier)

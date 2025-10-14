@@ -82,7 +82,7 @@ impl Default for KeyBindings {
             
             // Autoexplore
             toggle_autoexplore: vec![KeyCode::KeyA],
-            cancel_autoexplore: vec![KeyCode::Escape],
+            cancel_autoexplore: vec![KeyCode::Escape, KeyCode::Space],
             
             // Debug
             regenerate_map: vec![KeyCode::KeyR],
@@ -380,7 +380,7 @@ pub fn toggle_autoexplore(
     tile_visibility_query: Query<(&TilePos, &TileVisibilityState)>,
     map: Res<GameMap>,
 ) {
-    // Check for A to toggle, or ESC to cancel
+    // Check for A to toggle, or ESC/Space to cancel
     let toggle_pressed = key_bindings.is_just_pressed(&key_bindings.toggle_autoexplore, &keyboard_input);
     let cancel_pressed = key_bindings.is_just_pressed(&key_bindings.cancel_autoexplore, &keyboard_input);
 

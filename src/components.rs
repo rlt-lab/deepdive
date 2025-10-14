@@ -289,18 +289,8 @@ pub struct TileIndex {
 }
 
 impl TileIndex {
-    pub fn new() -> Self {
-        Self {
-            tiles: std::collections::HashMap::new(),
-        }
-    }
-
     pub fn insert(&mut self, x: u32, y: u32, entity: Entity) {
         self.tiles.insert((x, y), entity);
-    }
-
-    pub fn get(&self, x: u32, y: u32) -> Option<Entity> {
-        self.tiles.get(&(x, y)).copied()
     }
 
     pub fn clear(&mut self) {
@@ -308,21 +298,23 @@ impl TileIndex {
     }
 }
 
-#[derive(Resource, Default)]
+#[derive(Resource)]
 pub struct TilePool {
     // Pool of available tile entities for reuse
     pub available: Vec<Entity>,
     pub max_pool_size: usize,
 }
 
-impl TilePool {
-    pub fn new() -> Self {
+impl Default for TilePool {
+    fn default() -> Self {
         Self {
             available: Vec::new(),
             max_pool_size: 4000, // 80x50 map = 4000 tiles
         }
     }
+}
 
+impl TilePool {
     // Get a tile entity from pool or indicate need to spawn new
     pub fn acquire(&mut self) -> Option<Entity> {
         self.available.pop()
@@ -334,17 +326,6 @@ impl TilePool {
             self.available.push(entity);
         }
         // If pool is full, entity will be despawned by caller
-    }
-
-    // Return multiple entities at once
-    pub fn release_batch(&mut self, entities: Vec<Entity>) {
-        for entity in entities {
-            self.release(entity);
-        }
-    }
-
-    pub fn clear(&mut self) {
-        self.available.clear();
     }
 
     pub fn len(&self) -> usize {

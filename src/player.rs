@@ -460,11 +460,11 @@ pub fn run_autoexplore(
                 player.x = next_pos.0;
                 player.y = next_pos.1;
 
-                // Add animation
+                // Add fast animation for autoexplore
                 commands.entity(entity).insert(MovementAnimation {
                     start_pos: Vec3::new(start_world_x, start_world_y, 1.0),
                     end_pos: Vec3::new(end_world_x, end_world_y, 1.0),
-                    timer: Timer::from_seconds(0.1, TimerMode::Once),
+                    timer: Timer::from_seconds(0.05, TimerMode::Once), // 50ms animation - fast but visible
                 });
 
                 // Remove this step from path

@@ -11,6 +11,7 @@ mod states;
 mod assets;
 mod map;
 mod map_generation;
+mod map_generation_compact;
 mod player;
 mod camera;
 mod level_manager;

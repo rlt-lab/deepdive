@@ -16,12 +16,6 @@ pub enum TileType {
     StairDown,
 }
 
-#[derive(Clone, Copy, PartialEq)]
-pub enum MapGenerationType {
-    SimpleRoom,
-    DrunkardWalk,
-}
-
 // ============================================================================
 // PLAYER COMPONENTS
 // ============================================================================
@@ -63,7 +57,7 @@ impl Default for Autoexplore {
             active: false,
             path: Vec::new(),
             target: None,
-            move_timer: Timer::from_seconds(0.011, TimerMode::Repeating), // 9x faster than normal movement
+            move_timer: Timer::from_seconds(0.001, TimerMode::Repeating), // Blazing fast autoexplore
         }
     }
 }

@@ -67,9 +67,9 @@ impl GameMap {
     // New modular generation method
     pub fn generate_with_biome(&mut self, biome: BiomeType, level: u32) {
         let params = MapGenParams::for_biome(biome, level);
-        let mut generator = get_generator(&params.algorithm);
+        let mut generator = get_generator();
         self.tiles = generator.generate(self.width, self.height, &params);
-        
+
         // Ensure connectivity for all generation types
         self.ensure_connectivity();
     }
@@ -98,89 +98,6 @@ impl GameMap {
             }
         }
         positions
-    }
-
-    pub fn generate_simple_room(&mut self) {
-        // Fill with walls
-        for y in 0..self.height {
-            for x in 0..self.width {
-                self.set(x, y, TileType::Wall);
-            }
-        }
-
-        // Create room interior (leave 1-tile border)
-        for y in 1..self.height-1 {
-            for x in 1..self.width-1 {
-                self.set(x, y, TileType::Floor);
-            }
-        }
-    }
-    
-    pub fn generate_drunkard_walk(&mut self, steps: u32, num_walkers: u32) {
-        let mut rng = rand::rng();
-
-        // Start with all walls
-        for y in 0..self.height {
-            for x in 0..self.width {
-                self.set(x, y, TileType::Wall);
-            }
-        }
-
-        let mut carved_positions = HashSet::new();
-
-        // Multiple walkers for more interesting caves
-        for _ in 0..num_walkers {
-            let mut x = self.width / 2;
-            let mut y = self.height / 2;
-
-            // Ensure starting position is within ellipse (it should be since center is always inside)
-            if !self.is_within_ellipse(x, y) {
-                // Fallback to exact center if needed
-                x = self.width / 2;
-                y = self.height / 2;
-            }
-
-            // Carve the starting position
-            self.set(x, y, TileType::Floor);
-            carved_positions.insert((x, y));
-
-            // Perform drunkard walk
-            for _ in 0..steps {
-                // Choose random direction (0=up, 1=right, 2=down, 3=left)
-                let direction = rng.random_range(0..4);
-
-                let (new_x, new_y) = match direction {
-                    0 if y > 0 => (x, y - 1),
-                    1 if x < self.width - 1 => (x + 1, y),
-                    2 if y < self.height - 1 => (x, y + 1),
-                    3 if x > 0 => (x - 1, y),
-                    _ => (x, y), // Stay in place if at boundary
-                };
-
-                // Only move if the new position is within the elliptical boundary
-                if self.is_within_ellipse(new_x, new_y) {
-                    x = new_x;
-                    y = new_y;
-
-                    // Carve the floor
-                    self.set(x, y, TileType::Floor);
-                    carved_positions.insert((x, y));
-                }
-                // If outside ellipse, stay at current position but don't carve
-            }
-        }
-
-        // Ensure all carved areas are connected
-        self.connect_disconnected_areas(&carved_positions);
-
-        // Final cleanup: ensure all tiles outside the ellipse are walls
-        for y in 0..self.height {
-            for x in 0..self.width {
-                if !self.is_within_ellipse(x, y) {
-                    self.set(x, y, TileType::Wall);
-                }
-            }
-        }
     }
     
     fn connect_disconnected_areas(&mut self, carved_positions: &HashSet<(u32, u32)>) {
@@ -525,18 +442,10 @@ pub fn spawn_map(
         GameMap::from_saved_data(saved_data)
     } else {
         // Generate new map
-        let mut map = GameMap::new(80, 50); // Larger maps for drunkard walk
+        let mut map = GameMap::new(80, 50);
 
-        if current_level.level == 0 {
-            // Use a basic drunkard walk for level 0 for testing - scaled for 80x50 map
-            map.generate_drunkard_walk(2000, 3);
-        } else {
-            // Use drunkard walk for deeper levels - scaled for 80x50 map
-            let steps = 2500 + (current_level.level * 50); // More complex deeper levels
-            let walkers = 4 + (current_level.level / 3); // More walkers for deeper levels
-            map.generate_drunkard_walk(steps, walkers);
-        }
-
+        // Use biome-aware generation
+        map.generate_with_biome(current_level.biome, current_level.level);
         map.place_stairs(current_level.level);
         map
     };

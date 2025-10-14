@@ -145,6 +145,7 @@ pub fn handle_level_transitions(
     mut fov_settings: ResMut<FovSettings>,
     mut tile_index: ResMut<TileIndex>,
     mut tile_pool: ResMut<TilePool>,
+    mut ellipse_mask: ResMut<EllipseMask>,
     mut rng: ResMut<GlobalRng>,
 ) {
     for event in level_change_events.read() {
@@ -185,7 +186,9 @@ pub fn handle_level_transitions(
         } else {
             let mut map = GameMap::new(80, 50);
             // Use biome-aware generation
-            map.generate_with_biome(current_level.biome, event.new_level, rng.as_mut());
+            // Update ellipse mask for map dimensions
+            ellipse_mask.resize(80, 50);
+            map.generate_with_biome(current_level.biome, event.new_level, rng.as_mut(), &ellipse_mask);
             map.place_stairs(event.new_level, rng.as_mut());
             // Create new visibility data for new map (empty HashMap = all Unseen)
             let new_visibility = std::collections::HashMap::new();
@@ -246,6 +249,7 @@ pub fn handle_map_regeneration(
     mut fov_settings: ResMut<FovSettings>,
     mut tile_index: ResMut<TileIndex>,
     mut tile_pool: ResMut<TilePool>,
+    mut ellipse_mask: ResMut<EllipseMask>,
     mut rng: ResMut<GlobalRng>,
 ) {
     for _event in regenerate_events.read() {
@@ -266,8 +270,11 @@ pub fn handle_map_regeneration(
         // Generate new map
         let mut map = GameMap::new(80, 50);
         
+        // Update ellipse mask for map dimensions
+        ellipse_mask.resize(80, 50);
+        
         // Use biome-aware generation
-        map.generate_with_biome(current_level.biome, current_level.level, rng.as_mut());
+        map.generate_with_biome(current_level.biome, current_level.level, rng.as_mut(), &ellipse_mask);
         
         map.place_stairs(current_level.level, rng.as_mut());
         

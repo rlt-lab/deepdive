@@ -31,7 +31,7 @@ use level_manager::LevelManagerPlugin;
 use fov::FovPlugin;
 use ui::UiPlugin;
 use particles::ParticlePlugin;
-use components::{*, GlobalRng};
+use components::{*, GlobalRng, EllipseMask};
 
 // System sets for organizing update systems
 #[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
@@ -65,6 +65,7 @@ fn main() {
         .init_resource::<TileIndex>()
         .init_resource::<TilePool>()
         .init_resource::<KeyBindings>()
+        .insert_resource(EllipseMask::new(80, 50)) // Pre-calculate ellipse boundary for 80x50 maps
         .insert_resource(GlobalRng::new())
         // Register component types for reflection
         .register_type::<Player>()

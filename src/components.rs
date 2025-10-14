@@ -384,6 +384,61 @@ impl TilePool {
     }
 }
 
+/// Pre-calculated ellipse boundary mask for map generation
+/// Eliminates repeated ellipse equation calculations
+#[derive(Resource)]
+pub struct EllipseMask {
+    mask: Vec<bool>, // Flat array of width * height
+    width: u32,
+    height: u32,
+}
+
+impl EllipseMask {
+    /// Create a new ellipse mask for the given dimensions
+    pub fn new(width: u32, height: u32) -> Self {
+        let mut mask = vec![false; (width * height) as usize];
+        
+        let center_x = width as f32 / 2.0;
+        let center_y = height as f32 / 2.0;
+        
+        // Create an ellipse that fits within the map bounds with some padding
+        let a = (width as f32 / 2.0) - 2.0; // Semi-major axis (horizontal)
+        let b = (height as f32 / 2.0) - 2.0; // Semi-minor axis (vertical)
+        
+        // Pre-calculate all positions
+        for y in 0..height {
+            for x in 0..width {
+                let dx = x as f32 - center_x;
+                let dy = y as f32 - center_y;
+                
+                // Ellipse equation: (x-h)²/a² + (y-k)²/b² <= 1
+                let is_inside = (dx * dx) / (a * a) + (dy * dy) / (b * b) <= 1.0;
+                mask[(y * width + x) as usize] = is_inside;
+            }
+        }
+        
+        Self {
+            mask,
+            width,
+            height,
+        }
+    }
+    
+    /// Check if a position is within the ellipse boundary
+    #[inline]
+    pub fn is_within(&self, x: u32, y: u32) -> bool {
+        if x >= self.width || y >= self.height {
+            return false;
+        }
+        self.mask[(y * self.width + x) as usize]
+    }
+    
+    /// Update the mask for new dimensions (used when map size changes)
+    pub fn resize(&mut self, width: u32, height: u32) {
+        *self = Self::new(width, height);
+    }
+}
+
 // ============================================================================
 // DATA STRUCTURES
 // ============================================================================

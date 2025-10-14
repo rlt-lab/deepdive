@@ -4,7 +4,7 @@ use rand::Rng;
 use std::collections::HashSet;
 
 use crate::assets::{GameAssets, SpriteDatabase, sprite_position_to_index};
-use crate::components::{TileType, MapTile, SavedMapData, CurrentLevel, LevelMaps, TileVisibilityState, TileVisibility, TileIndex, GlobalRng};
+use crate::components::{TileType, MapTile, SavedMapData, CurrentLevel, LevelMaps, TileVisibilityState, TileVisibility, TileIndex, GlobalRng, EllipseMask};
 use crate::biome::{BiomeType, BiomeConfig};
 use crate::map_generation::{MapGenParams, get_generator};
 
@@ -48,40 +48,26 @@ impl GameMap {
         self.tiles[idx] = tile;
     }
     
-    // Helper function to check if a position is within the oblong circle boundary
-    fn is_within_ellipse(&self, x: u32, y: u32) -> bool {
-        let center_x = self.width as f32 / 2.0;
-        let center_y = self.height as f32 / 2.0;
-        
-        // Create an ellipse that fits within the map bounds with some padding
-        let a = (self.width as f32 / 2.0) - 2.0; // Semi-major axis (horizontal)
-        let b = (self.height as f32 / 2.0) - 2.0; // Semi-minor axis (vertical)
-        
-        let dx = x as f32 - center_x;
-        let dy = y as f32 - center_y;
-        
-        // Ellipse equation: (x-h)²/a² + (y-k)²/b² <= 1
-        (dx * dx) / (a * a) + (dy * dy) / (b * b) <= 1.0
-    }
+    // Note: is_within_ellipse moved to EllipseMask resource for better performance
     
     // New modular generation method
-    pub fn generate_with_biome(&mut self, biome: BiomeType, level: u32, rng: &mut impl Rng) {
+    pub fn generate_with_biome(&mut self, biome: BiomeType, level: u32, rng: &mut impl Rng, ellipse_mask: &EllipseMask) {
         let params = MapGenParams::for_biome(biome, level);
         let mut generator = get_generator();
         self.tiles = generator.generate(self.width, self.height, &params, rng);
 
         // Ensure connectivity for all generation types
-        self.ensure_connectivity();
+        self.ensure_connectivity(ellipse_mask);
     }
 
-    fn ensure_connectivity(&mut self) {
+    fn ensure_connectivity(&mut self, ellipse_mask: &EllipseMask) {
         let carved_positions = self.get_floor_positions_set();
-        self.connect_disconnected_areas(&carved_positions);
+        self.connect_disconnected_areas(&carved_positions, ellipse_mask);
 
         // Final cleanup: ensure all tiles outside the ellipse are walls
         for y in 0..self.height {
             for x in 0..self.width {
-                if !self.is_within_ellipse(x, y) {
+                if !ellipse_mask.is_within(x, y) {
                     self.set(x, y, TileType::Wall);
                 }
             }
@@ -100,7 +86,7 @@ impl GameMap {
         positions
     }
     
-    fn connect_disconnected_areas(&mut self, carved_positions: &HashSet<(u32, u32)>) {
+    fn connect_disconnected_areas(&mut self, carved_positions: &HashSet<(u32, u32)>, ellipse_mask: &EllipseMask) {
         let groups = self.find_disconnected_groups(carved_positions);
         
         // Connect all groups to the largest one
@@ -117,7 +103,7 @@ impl GameMap {
                 if i != largest_group_idx {
                     // Find closest points between groups
                     let (start, end) = self.find_closest_points(group, largest_group);
-                    self.carve_tunnel(start, end);
+                    self.carve_tunnel(start, end, ellipse_mask);
                 }
             }
         }
@@ -182,7 +168,7 @@ impl GameMap {
         closest_pair
     }
     
-    fn carve_tunnel(&mut self, start: (u32, u32), end: (u32, u32)) {
+    fn carve_tunnel(&mut self, start: (u32, u32), end: (u32, u32), ellipse_mask: &EllipseMask) {
         let mut x = start.0 as i32;
         let mut y = start.1 as i32;
         let target_x = end.0 as i32;
@@ -197,7 +183,7 @@ impl GameMap {
             }
             if x >= 0 && x < self.width as i32 && y >= 0 && y < self.height as i32 {
                 // Only carve if within ellipse boundary
-                if self.is_within_ellipse(x as u32, y as u32) {
+                if ellipse_mask.is_within(x as u32, y as u32) {
                     self.set(x as u32, y as u32, TileType::Floor);
                 }
             }
@@ -211,7 +197,7 @@ impl GameMap {
             }
             if x >= 0 && x < self.width as i32 && y >= 0 && y < self.height as i32 {
                 // Only carve if within ellipse boundary
-                if self.is_within_ellipse(x as u32, y as u32) {
+                if ellipse_mask.is_within(x as u32, y as u32) {
                     self.set(x as u32, y as u32, TileType::Floor);
                 }
             }
@@ -428,6 +414,7 @@ pub fn spawn_map(
     level_maps: Res<LevelMaps>,
     current_level: Res<CurrentLevel>,
     mut tile_index: ResMut<TileIndex>,
+    mut ellipse_mask: ResMut<EllipseMask>,
     mut rng: ResMut<GlobalRng>,
 ) {
     // Biome-aware config
@@ -440,8 +427,11 @@ pub fn spawn_map(
         // Generate new map
         let mut map = GameMap::new(80, 50);
 
+        // Update ellipse mask for map dimensions
+        ellipse_mask.resize(80, 50);
+
         // Use biome-aware generation
-        map.generate_with_biome(current_level.biome, current_level.level, rng.as_mut());
+        map.generate_with_biome(current_level.biome, current_level.level, rng.as_mut(), &ellipse_mask);
         map.place_stairs(current_level.level, rng.as_mut());
         map
     };

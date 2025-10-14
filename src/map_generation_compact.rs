@@ -7,22 +7,21 @@ use crate::map_generation::{MapGenerator, MapGenParams, flatten_tiles};
 pub struct CompactOrganicGenerator;
 
 impl MapGenerator for CompactOrganicGenerator {
-    fn generate(&mut self, width: u32, height: u32, params: &MapGenParams) -> Vec<TileType> {
+    fn generate(&mut self, width: u32, height: u32, params: &MapGenParams, rng: &mut dyn rand::RngCore) -> Vec<TileType> {
         let mut tiles = vec![vec![TileType::Wall; width as usize]; height as usize];
-        let mut rng = rand::rng();
 
         // Step 1: Generate organic outer boundary (20x20 constraint)
-        let boundary = self.generate_organic_boundary(width, height, &mut rng);
+        let boundary = self.generate_organic_boundary(width, height, rng);
 
         // Step 2: Fill boundary with floors
         self.fill_boundary(&mut tiles, &boundary, width, height);
 
         // Step 3: Create interior wall divisions
-        let divisions = self.create_interior_divisions(&boundary, params, &mut rng);
+        let divisions = self.create_interior_divisions(&boundary, params, rng);
         self.apply_wall_divisions(&mut tiles, &divisions, width, height);
 
         // Step 4: Punch doorways through walls
-        self.create_doorways(&mut tiles, &divisions, width, height, &mut rng);
+        self.create_doorways(&mut tiles, &divisions, width, height, rng);
 
         // Step 5: Ensure connectivity
         self.ensure_all_rooms_connected(&mut tiles, width, height);
@@ -33,7 +32,7 @@ impl MapGenerator for CompactOrganicGenerator {
 
 impl CompactOrganicGenerator {
     // Generate an organic blob shape using cellular automata growth
-    fn generate_organic_boundary(&self, width: u32, height: u32, rng: &mut impl Rng) -> Vec<(u32, u32)> {
+    fn generate_organic_boundary(&self, width: u32, height: u32, rng: &mut dyn rand::RngCore) -> Vec<(u32, u32)> {
         let center_x = width / 2;
         let center_y = height / 2;
 
@@ -92,7 +91,7 @@ impl CompactOrganicGenerator {
     }
 
     // Create interior wall divisions using recursive slicing
-    fn create_interior_divisions(&self, boundary: &[(u32, u32)], params: &MapGenParams, rng: &mut impl Rng) -> Vec<WallDivision> {
+    fn create_interior_divisions(&self, boundary: &[(u32, u32)], params: &MapGenParams, rng: &mut dyn rand::RngCore) -> Vec<WallDivision> {
         let mut divisions = Vec::new();
 
         // Find bounding box of boundary
@@ -165,7 +164,7 @@ impl CompactOrganicGenerator {
 
     // Punch doorways (1-3 tiles) through each wall division
     fn create_doorways(&self, tiles: &mut Vec<Vec<TileType>>, divisions: &[WallDivision],
-                      width: u32, height: u32, rng: &mut impl Rng) {
+                      width: u32, height: u32, rng: &mut dyn rand::RngCore) {
         for division in divisions {
             // Create 1-2 doorways per division
             let num_doorways = rng.random_range(1..=2);

@@ -213,6 +213,37 @@ pub struct DepthIndicator;
 // RESOURCES
 // ============================================================================
 
+/// Global random number generator resource for use across all systems
+/// Provides thread-safe random number generation for Bevy systems
+#[derive(Resource)]
+pub struct GlobalRng(rand::rngs::StdRng);
+
+impl GlobalRng {
+    pub fn new() -> Self {
+        use rand::{SeedableRng, rng};
+        Self(rand::rngs::StdRng::from_rng(&mut rng()))
+    }
+    
+    pub fn with_seed(seed: u64) -> Self {
+        use rand::SeedableRng;
+        Self(rand::rngs::StdRng::seed_from_u64(seed))
+    }
+}
+
+impl rand::RngCore for GlobalRng {
+    fn next_u32(&mut self) -> u32 {
+        self.0.next_u32()
+    }
+
+    fn next_u64(&mut self) -> u64 {
+        self.0.next_u64()
+    }
+
+    fn fill_bytes(&mut self, dest: &mut [u8]) {
+        self.0.fill_bytes(dest)
+    }
+}
+
 #[derive(Resource, Deref, DerefMut)]
 pub struct PlayerEntity(pub Entity);
 

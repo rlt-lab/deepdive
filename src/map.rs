@@ -4,7 +4,7 @@ use rand::Rng;
 use std::collections::HashSet;
 
 use crate::assets::{GameAssets, SpriteDatabase, sprite_position_to_index};
-use crate::components::{TileType, MapTile, SavedMapData, CurrentLevel, LevelMaps, TileVisibilityState, TileVisibility, TileIndex};
+use crate::components::{TileType, MapTile, SavedMapData, CurrentLevel, LevelMaps, TileVisibilityState, TileVisibility, TileIndex, GlobalRng};
 use crate::biome::{BiomeType, BiomeConfig};
 use crate::map_generation::{MapGenParams, get_generator};
 
@@ -65,10 +65,10 @@ impl GameMap {
     }
     
     // New modular generation method
-    pub fn generate_with_biome(&mut self, biome: BiomeType, level: u32) {
+    pub fn generate_with_biome(&mut self, biome: BiomeType, level: u32, rng: &mut impl Rng) {
         let params = MapGenParams::for_biome(biome, level);
         let mut generator = get_generator();
-        self.tiles = generator.generate(self.width, self.height, &params);
+        self.tiles = generator.generate(self.width, self.height, &params, rng);
 
         // Ensure connectivity for all generation types
         self.ensure_connectivity();
@@ -101,7 +101,6 @@ impl GameMap {
     }
     
     fn connect_disconnected_areas(&mut self, carved_positions: &HashSet<(u32, u32)>) {
-        let _rng = rand::rng();
         let groups = self.find_disconnected_groups(carved_positions);
         
         // Connect all groups to the largest one
@@ -219,8 +218,7 @@ impl GameMap {
         }
     }
     
-    pub fn place_stairs(&mut self, level: u32) {
-        let mut rng = rand::rng();
+    pub fn place_stairs(&mut self, level: u32, rng: &mut impl Rng) {
         let floor_positions: Vec<(u32, u32)> = self.get_floor_positions();
 
         if floor_positions.is_empty() {
@@ -304,23 +302,21 @@ impl GameMap {
 }
 
 // Helper function to get the correct tile texture index based on tile type and context
-pub fn get_tile_texture_index(tile_type: TileType, map: &GameMap, x: u32, y: u32, sprite_db: &SpriteDatabase) -> u32 {
-    let mut rng = rand::rng();
-    
+pub fn get_tile_texture_index(tile_type: TileType, map: &GameMap, x: u32, y: u32, sprite_db: &SpriteDatabase, rng: &mut impl Rng) -> u32 {
     match tile_type {
         TileType::Floor => {
             // Get a random floor sprite from the floors category
-            sprite_db.get_random_sprite_from_category("floors", &mut rng)
+            sprite_db.get_random_sprite_from_category("floors", rng)
                 .unwrap_or(sprite_position_to_index(1, 6)) // fallback to floor_stone1
         },
         TileType::Wall => {
             if map.has_wall_below(x, y) {
                 // Use wall_top sprites
-                sprite_db.get_random_sprite_from_category("wall_top", &mut rng)
+                sprite_db.get_random_sprite_from_category("wall_top", rng)
                     .unwrap_or(sprite_position_to_index(0, 0)) // fallback to dirt_wall_top
             } else {
                 // Use wall_side sprites  
-                sprite_db.get_random_sprite_from_category("wall_side", &mut rng)
+                sprite_db.get_random_sprite_from_category("wall_side", rng)
                     .unwrap_or(sprite_position_to_index(1, 0)) // fallback to dirt_wall_side
             }
         },
@@ -432,10 +428,10 @@ pub fn spawn_map(
     level_maps: Res<LevelMaps>,
     current_level: Res<CurrentLevel>,
     mut tile_index: ResMut<TileIndex>,
+    mut rng: ResMut<GlobalRng>,
 ) {
-    // Biome-aware config and RNG
+    // Biome-aware config
     let biome_config = current_level.biome.get_config();
-    let mut rng = rand::rng();
 
     let map = if let Some(saved_data) = level_maps.maps.get(&current_level.level) {
         // Load existing map
@@ -445,8 +441,8 @@ pub fn spawn_map(
         let mut map = GameMap::new(80, 50);
 
         // Use biome-aware generation
-        map.generate_with_biome(current_level.biome, current_level.level);
-        map.place_stairs(current_level.level);
+        map.generate_with_biome(current_level.biome, current_level.level, rng.as_mut());
+        map.place_stairs(current_level.level, rng.as_mut());
         map
     };
 
@@ -461,7 +457,7 @@ pub fn spawn_map(
         for x in 0..map.width {
             let tile_type = map.get(x, y);
             // Select sprite position based on biome configuration
-            let (sprite_x, sprite_y) = select_biome_asset(&biome_config, tile_type, &map, x, y, &mut rng);
+            let (sprite_x, sprite_y) = select_biome_asset(&biome_config, tile_type, &map, x, y, rng.as_mut());
             let texture_index = sprite_position_to_index(sprite_x, sprite_y);
 
             let tile_pos = TilePos { x, y };

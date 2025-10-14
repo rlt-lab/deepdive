@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 use bevy_ecs_tilemap::prelude::*;
 
-use crate::components::{Player, CurrentLevel, TileType, MapTile, BiomeParticle, ParticleType, ParticleSpawner, ParticleSettings, WindState};
+use crate::components::{Player, CurrentLevel, TileType, MapTile, BiomeParticle, ParticleType, ParticleSpawner, ParticleSettings, WindState, GlobalRng};
 use crate::biome::BiomeType;
 use crate::states::GameState;
 use crate::map::GameMap;
@@ -283,6 +283,7 @@ fn spawn_biome_particles(
     tile_query: Query<(&TilePos, &MapTile)>,
     existing_particles: Query<&BiomeParticle>,
     map: Res<GameMap>,
+    mut rng: ResMut<GlobalRng>,
 ) {
     if !settings.enabled || !spawner.config.enabled {
         return;
@@ -308,7 +309,7 @@ fn spawn_biome_particles(
         // Collect primary spawn positions across entire map
         let mut primary_positions = Vec::with_capacity(initial_primary);
         for _ in 0..initial_primary {
-            if let Some(spawn_pos) = find_map_spawn_position(&tile_query, &map) {
+            if let Some(spawn_pos) = find_map_spawn_position(&tile_query, &map, rng.as_mut()) {
                 primary_positions.push(spawn_pos);
             }
         }
@@ -316,19 +317,19 @@ fn spawn_biome_particles(
         // Collect secondary spawn positions across entire map
         let mut secondary_positions = Vec::with_capacity(initial_secondary);
         for _ in 0..initial_secondary {
-            if let Some(spawn_pos) = find_map_spawn_position(&tile_query, &map) {
+            if let Some(spawn_pos) = find_map_spawn_position(&tile_query, &map, rng.as_mut()) {
                 secondary_positions.push(spawn_pos);
             }
         }
 
         // Batch spawn all primary particles
         for spawn_pos in primary_positions {
-            spawn_primary_particle(&mut commands, spawn_pos, &spawner.config);
+            spawn_primary_particle(&mut commands, spawn_pos, &spawner.config, rng.as_mut());
         }
 
         // Batch spawn all secondary particles
         for spawn_pos in secondary_positions {
-            spawn_secondary_particle(&mut commands, spawn_pos, &spawner.config);
+            spawn_secondary_particle(&mut commands, spawn_pos, &spawner.config, rng.as_mut());
         }
 
         spawner.initial_spawn_complete = true;
@@ -344,22 +345,22 @@ fn spawn_biome_particles(
         // Collect spawn positions across entire map
         let mut spawn_positions = Vec::with_capacity(spawn_count);
         for _ in 0..spawn_count {
-            if let Some(spawn_pos) = find_map_spawn_position(&tile_query, &map) {
+            if let Some(spawn_pos) = find_map_spawn_position(&tile_query, &map, rng.as_mut()) {
                 spawn_positions.push(spawn_pos);
             }
         }
 
         // Batch spawn all particles
         for spawn_pos in spawn_positions {
-            spawn_primary_particle(&mut commands, spawn_pos, &spawner.config);
+            spawn_primary_particle(&mut commands, spawn_pos, &spawner.config, rng.as_mut());
         }
     }
 
     if spawner.secondary_timer.just_finished() && secondary_count < spawner.config.secondary_max_particles {
-        use rand::random;
-        if random::<f32>() < spawner.config.secondary_spawn_chance {
-            if let Some(spawn_pos) = find_map_spawn_position(&tile_query, &map) {
-                spawn_secondary_particle(&mut commands, spawn_pos, &spawner.config);
+        use rand::Rng;
+        if rng.random::<f32>() < spawner.config.secondary_spawn_chance {
+            if let Some(spawn_pos) = find_map_spawn_position(&tile_query, &map, rng.as_mut()) {
+                spawn_secondary_particle(&mut commands, spawn_pos, &spawner.config, rng.as_mut());
             }
         }
     }
@@ -369,9 +370,8 @@ fn spawn_biome_particles(
 fn find_map_spawn_position(
     tile_query: &Query<(&TilePos, &MapTile)>,
     map: &GameMap,
+    rng: &mut impl rand::Rng,
 ) -> Option<Vec2> {
-    use rand::Rng;
-    let mut rng = rand::rng();
 
     // Try up to 12 times to find a suitable spawn position
     for _ in 0..12 {
@@ -414,9 +414,7 @@ fn is_suitable_for_particles_fast(pos: Vec2, tile_query: &Query<(&TilePos, &MapT
     true
 }
 
-fn spawn_primary_particle(commands: &mut Commands, spawn_pos: Vec2, config: &BiomeParticleConfig) {
-    use rand::Rng;
-    let mut rng = rand::rng();
+fn spawn_primary_particle(commands: &mut Commands, spawn_pos: Vec2, config: &BiomeParticleConfig, rng: &mut impl rand::Rng) {
 
     let lifetime = rng.random_range(config.primary_lifetime_range.0..config.primary_lifetime_range.1);
     let velocity = Vec2::new(
@@ -455,9 +453,7 @@ fn spawn_primary_particle(commands: &mut Commands, spawn_pos: Vec2, config: &Bio
     ));
 }
 
-fn spawn_secondary_particle(commands: &mut Commands, spawn_pos: Vec2, config: &BiomeParticleConfig) {
-    use rand::Rng;
-    let mut rng = rand::rng();
+fn spawn_secondary_particle(commands: &mut Commands, spawn_pos: Vec2, config: &BiomeParticleConfig, rng: &mut impl rand::Rng) {
 
     let lifetime = rng.random_range(config.secondary_lifetime_range.0..config.secondary_lifetime_range.1);
     let velocity = Vec2::new(
@@ -503,6 +499,7 @@ fn update_biome_particles(
     mut particle_query: Query<(Entity, &mut BiomeParticle, &mut Transform, &mut Sprite)>,
     player_query: Query<&Transform, (With<Player>, Without<BiomeParticle>)>,
     tile_query: Query<(&TilePos, &MapTile)>,
+    mut rng: ResMut<GlobalRng>,
 ) {
     if !spawner.config.enabled {
         return;
@@ -523,7 +520,7 @@ fn update_biome_particles(
 
         // Apply movement style based on biome
         apply_movement_style(&mut movement, &spawner.config.movement_style, &particle,
-                           current_time, delta, wind_state.strength);
+                           current_time, delta, wind_state.strength, rng.as_mut());
 
         // Simplified wall interaction
         if (current_time * 4.0) as i32 % 10 == 0 {
@@ -560,9 +557,8 @@ fn apply_movement_style(
     current_time: f32,
     delta: f32,
     wind_strength: f32,
+    rng: &mut impl rand::Rng,
 ) {
-    use rand::Rng;
-    let mut rng = rand::rng();
 
     // Unpack wind_offset once
     let wind_offset = particle.wind_offset();
@@ -664,6 +660,7 @@ fn update_wind_system(
     time: Res<Time>,
     mut wind_state: ResMut<WindState>,
     spawner: Res<ParticleSpawner>,
+    mut rng: ResMut<GlobalRng>,
 ) {
     if !spawner.config.enabled {
         return;
@@ -673,7 +670,6 @@ fn update_wind_system(
 
     if wind_state.timer.just_finished() {
         use rand::Rng;
-        let mut rng = rand::rng();
 
         let angle: f32 = rng.random_range(0.0..6.28);
         wind_state.direction = Vec2::new(angle.cos(), angle.sin());

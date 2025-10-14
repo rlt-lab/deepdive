@@ -1,4 +1,5 @@
 // Map Generation Module - Compact Organic Algorithm
+use rand::RngCore;
 use crate::components::TileType;
 use crate::biome::BiomeType;
 
@@ -19,9 +20,9 @@ impl MapGenParams {
     }
 }
 
-/// Trait for map generators
+/// Trait for map generators (using RngCore which is dyn-safe)
 pub trait MapGenerator {
-    fn generate(&mut self, width: u32, height: u32, params: &MapGenParams) -> Vec<TileType>;
+    fn generate(&mut self, width: u32, height: u32, params: &MapGenParams, rng: &mut dyn RngCore) -> Vec<TileType>;
 }
 
 /// Get the map generator instance

@@ -1,5 +1,6 @@
 use bevy::prelude::*;
 use bevy_ecs_tilemap::prelude::*;
+use rand::Rng;
 
 use crate::assets::{GameAssets, SpriteDatabase, sprite_position_to_index};
 use crate::components::*;
@@ -38,19 +39,19 @@ fn spawn_map_tiles(
     tile_pool: &mut TilePool,
     tile_index: &mut TileIndex,
     assets: &GameAssets,
+    rng: &mut impl Rng,
 ) -> (Entity, TileStorage) {
     let tilemap_entity = commands.spawn_empty().id();
     let mut tile_storage = TileStorage::empty(TilemapSize { x: map.width, y: map.height });
 
     let biome_config = biome.get_config();
-    let mut rng = rand::rng();
     let mut reused_tiles = 0;
     let mut new_tiles = 0;
 
     for y in 0..map.height {
         for x in 0..map.width {
             let tile_type = map.get(x, y);
-            let (sprite_x, sprite_y) = select_biome_asset(&biome_config, tile_type, map, x, y, &mut rng);
+            let (sprite_x, sprite_y) = select_biome_asset(&biome_config, tile_type, map, x, y, rng);
             let texture_index = sprite_position_to_index(sprite_x, sprite_y);
 
             let tile_pos = TilePos { x, y };
@@ -144,6 +145,7 @@ pub fn handle_level_transitions(
     mut fov_settings: ResMut<FovSettings>,
     mut tile_index: ResMut<TileIndex>,
     mut tile_pool: ResMut<TilePool>,
+    mut rng: ResMut<GlobalRng>,
 ) {
     for event in level_change_events.read() {
         println!("Transitioning to level {}", event.new_level);
@@ -183,8 +185,8 @@ pub fn handle_level_transitions(
         } else {
             let mut map = GameMap::new(80, 50);
             // Use biome-aware generation
-            map.generate_with_biome(current_level.biome, event.new_level);
-            map.place_stairs(event.new_level);
+            map.generate_with_biome(current_level.biome, event.new_level, rng.as_mut());
+            map.place_stairs(event.new_level, rng.as_mut());
             // Create new visibility data for new map (empty HashMap = all Unseen)
             let new_visibility = std::collections::HashMap::new();
             // Save new map data with biome
@@ -214,7 +216,7 @@ pub fn handle_level_transitions(
         tile_index.clear();
 
         // Spawn the new map using the helper function
-        spawn_map_tiles(&mut commands, &map, current_level.biome, &saved_visibility, &mut tile_pool, &mut tile_index, &assets);
+        spawn_map_tiles(&mut commands, &map, current_level.biome, &saved_visibility, &mut tile_pool, &mut tile_index, &assets, rng.as_mut());
 
         commands.insert_resource(map);
         
@@ -244,6 +246,7 @@ pub fn handle_map_regeneration(
     mut fov_settings: ResMut<FovSettings>,
     mut tile_index: ResMut<TileIndex>,
     mut tile_pool: ResMut<TilePool>,
+    mut rng: ResMut<GlobalRng>,
 ) {
     for _event in regenerate_events.read() {
         println!("Regenerating level {}", current_level.level);
@@ -264,9 +267,9 @@ pub fn handle_map_regeneration(
         let mut map = GameMap::new(80, 50);
         
         // Use biome-aware generation
-        map.generate_with_biome(current_level.biome, current_level.level);
+        map.generate_with_biome(current_level.biome, current_level.level, rng.as_mut());
         
-        map.place_stairs(current_level.level);
+        map.place_stairs(current_level.level, rng.as_mut());
         
         // Position player in center of new map
         if let Ok(mut player) = player_query.single_mut() {
@@ -311,7 +314,7 @@ pub fn handle_map_regeneration(
         tile_index.clear();
 
         // Spawn the new map using the helper function
-        spawn_map_tiles(&mut commands, &map, current_level.biome, &new_visibility, &mut tile_pool, &mut tile_index, &assets);
+        spawn_map_tiles(&mut commands, &map, current_level.biome, &new_visibility, &mut tile_pool, &mut tile_index, &assets, rng.as_mut());
 
         commands.insert_resource(map);
 

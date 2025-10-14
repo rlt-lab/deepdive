@@ -28,7 +28,7 @@ pub fn setup_camera_follow(
 pub fn camera_follow_system(
     time: Res<Time>,
     mut camera_query: Query<(&mut Transform, &mut CameraFollow), (With<GameCamera>, Without<Player>)>,
-    player_query: Query<&Transform, (With<Player>, Without<GameCamera>, Changed<Transform>)>,
+    player_query: Query<&Transform, (With<Player>, Without<GameCamera>)>,
     map: Res<GameMap>,
 ) {
     if let (Ok((mut camera_transform, camera_follow)), Ok(player_transform)) = 

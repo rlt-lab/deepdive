@@ -1,0 +1,49 @@
+// Key bindings configuration for DeepDive
+// This file defines which keys map to which actions
+// Format: KeyCode enum values from Bevy
+
+KeyBindings(
+    // Movement keys (cardinal directions only)
+    movement: Movement(
+        up: [ArrowUp],
+        down: [ArrowDown],
+        left: [ArrowLeft],
+        right: [ArrowRight],
+    ),
+    
+    // Interaction keys
+    interaction: Interaction(
+        use_stairs: [KeyE],
+        pickup_item: [],  // Future: item pickup
+        interact: [],     // Future: talk to NPCs, open doors
+    ),
+    
+    // Autoexplore keys
+    autoexplore: Autoexplore(
+        toggle: [KeyA],          // Must be pressed with Shift
+        cancel: [Escape],
+    ),
+    
+    // Debug keys (require Shift modifier)
+    debug: Debug(
+        regenerate_map: [KeyR],
+        cycle_biome: [KeyB],
+        toggle_fov: [KeyO],
+        show_los_cache: [KeyL],
+    ),
+    
+    // Camera keys
+    camera: Camera(
+        zoom_in: [],      // Future: zoom controls
+        zoom_out: [],     // Future: zoom controls
+        reset_zoom: [KeyR],  // Without shift
+    ),
+    
+    // UI/Menu keys (future)
+    ui: UI(
+        inventory: [KeyI],
+        character: [KeyC],
+        pause: [Escape],
+        help: [KeyH],
+    ),
+)

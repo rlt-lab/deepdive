@@ -4,8 +4,10 @@ use bevy_ecs_tilemap::prelude::*;
 use crate::assets::GameAssets;
 use crate::components::*;
 use crate::map::GameMap;
-use crate::biome::BiomeType;
-use crate::level_manager::capture_tile_visibility;
+
+// ============================================================================
+// PLAYER SPAWNING
+// ============================================================================
 
 pub fn spawn_player(
     mut commands: Commands,
@@ -68,145 +70,9 @@ pub fn spawn_player(
     commands.insert_resource(PlayerEntity(player_entity));
 }
 
-// Event-based input detection - only fires when key state changes
-pub fn detect_movement_input(
-    keyboard_input: Res<ButtonInput<KeyCode>>,
-    time: Res<Time>,
-    mut player_query: Query<&mut MovementInput>,
-    mut move_events: EventWriter<PlayerMoveIntent>,
-) {
-    if let Ok(mut movement_input) = player_query.single_mut() {
-        // Check for any movement key being pressed
-        let up_pressed = keyboard_input.pressed(KeyCode::ArrowUp) || keyboard_input.pressed(KeyCode::KeyW);
-        let down_pressed = keyboard_input.pressed(KeyCode::ArrowDown) || keyboard_input.pressed(KeyCode::KeyS);
-        let left_pressed = keyboard_input.pressed(KeyCode::ArrowLeft) || keyboard_input.pressed(KeyCode::KeyA);
-        let right_pressed = keyboard_input.pressed(KeyCode::ArrowRight) || keyboard_input.pressed(KeyCode::KeyD);
-
-        let any_movement_key = up_pressed || down_pressed || left_pressed || right_pressed;
-
-        // Handle initial key press or continuous movement
-        let should_move = if any_movement_key {
-            if !movement_input.is_holding {
-                // First press - fire event immediately
-                movement_input.is_holding = true;
-                movement_input.move_timer.reset();
-                true
-            } else {
-                // Continuous movement - check timer
-                movement_input.move_timer.tick(time.delta());
-                if movement_input.move_timer.finished() {
-                    movement_input.move_timer.reset();
-                    true
-                } else {
-                    false
-                }
-            }
-        } else {
-            movement_input.is_holding = false;
-            false
-        };
-
-        // Fire movement intent events based on key priority
-        if should_move {
-            // Vertical movement (prioritized)
-            if up_pressed {
-                move_events.write(PlayerMoveIntent { direction: MoveDirection::Up });
-            } else if down_pressed {
-                move_events.write(PlayerMoveIntent { direction: MoveDirection::Down });
-            }
-
-            // Horizontal movement
-            if left_pressed {
-                move_events.write(PlayerMoveIntent { direction: MoveDirection::Left });
-            } else if right_pressed {
-                move_events.write(PlayerMoveIntent { direction: MoveDirection::Right });
-            }
-        }
-    }
-}
-
-// Process movement intent events
-pub fn handle_input(
-    mut commands: Commands,
-    mut player_query: Query<(Entity, &mut Player, &mut Sprite, Option<&Autoexplore>), Without<MovementAnimation>>,
-    mut move_events: EventReader<PlayerMoveIntent>,
-    map: Res<GameMap>,
-) {
-    if let Ok((entity, mut player, mut sprite, autoexplore_opt)) = player_query.single_mut() {
-        // Cancel autoexplore if player manually moves
-        if move_events.len() > 0 && autoexplore_opt.is_some() {
-            commands.entity(entity).remove::<Autoexplore>();
-            println!("Autoexplore cancelled by manual input");
-        }
-
-        // Process all movement events for this frame
-        for event in move_events.read() {
-            let mut movement_attempted = false;
-            let mut new_x = player.x;
-            let mut new_y = player.y;
-            let mut flip_sprite_opt: Option<bool> = None;
-
-            // Apply movement based on direction
-            match event.direction {
-                MoveDirection::Up => {
-                    if new_y < map.height - 1 {
-                        new_y += 1;
-                        movement_attempted = true;
-                    }
-                }
-                MoveDirection::Down => {
-                    if new_y > 0 {
-                        new_y -= 1;
-                        movement_attempted = true;
-                    }
-                }
-                MoveDirection::Left => {
-                    if new_x > 0 {
-                        new_x -= 1;
-                        movement_attempted = true;
-                        flip_sprite_opt = Some(false); // No flip for left (natural direction)
-                    }
-                }
-                MoveDirection::Right => {
-                    if new_x < map.width - 1 {
-                        new_x += 1;
-                        movement_attempted = true;
-                        flip_sprite_opt = Some(true); // Flip for right (face right)
-                    }
-                }
-            }
-
-            // Check collision with walls and apply movement
-            if movement_attempted && map.get(new_x, new_y) != TileType::Wall {
-                // Calculate start and end positions for animation
-                let start_world_x = (player.x as f32 - (map.width as f32 / 2.0 - 0.5)) * 32.0;
-                let start_world_y = (player.y as f32 - (map.height as f32 / 2.0 - 0.5)) * 32.0;
-                let end_world_x = (new_x as f32 - (map.width as f32 / 2.0 - 0.5)) * 32.0;
-                let end_world_y = (new_y as f32 - (map.height as f32 / 2.0 - 0.5)) * 32.0;
-
-                // Update player grid position
-                player.x = new_x;
-                player.y = new_y;
-
-                // Handle sprite flipping
-                if let Some(flip) = flip_sprite_opt {
-                    sprite.flip_x = flip;
-                }
-
-                // Add movement animation component
-                commands.entity(entity).insert(MovementAnimation {
-                    start_pos: Vec3::new(start_world_x, start_world_y, 1.0),
-                    end_pos: Vec3::new(end_world_x, end_world_y, 1.0),
-                    timer: Timer::from_seconds(0.1, TimerMode::Once), // 100ms hop animation
-                });
-
-                println!("Player moved to ({}, {})", new_x, new_y);
-            } else if movement_attempted {
-                println!("Cannot move to ({}, {}) - wall detected", new_x, new_y);
-            }
-        }
-    }
-}
+// ============================================================================
+// PLAYER MOVEMENT & ANIMATION
+// ============================================================================
 
 pub fn move_player(
     mut player_query: Query<(&Player, &mut Transform), (Changed<Player>, Without<MovementAnimation>)>,
@@ -251,163 +117,9 @@ pub fn animate_movement(
     }
 }
 
-pub fn handle_stair_interaction(
-    keyboard_input: Res<ButtonInput<KeyCode>>,
-    player_query: Query<&Player>,
-    tile_visibility_query: Query<(&TilePos, &TileVisibilityState)>,
-    map: Res<GameMap>,
-    current_level: Res<CurrentLevel>,
-    mut level_maps: ResMut<LevelMaps>,
-    mut level_change_events: EventWriter<LevelChangeEvent>,
-) {
-    if keyboard_input.just_pressed(KeyCode::KeyE) {
-        if let Ok(player) = player_query.single() {
-            let tile_type = map.get(player.x, player.y);
-
-            match tile_type {
-                TileType::StairUp if current_level.level > 0 => {
-                    println!("Going up to level {}", current_level.level - 1);
-                    // Save current map with tile visibility
-                    let current_visibility = capture_tile_visibility(&tile_visibility_query, map.width, map.height);
-                    level_maps.maps.insert(current_level.level, map.to_saved_data(current_level.biome, current_visibility));
-                    // Trigger level change
-                    level_change_events.write(LevelChangeEvent {
-                        new_level: current_level.level - 1,
-                        spawn_position: SpawnPosition::StairDown,
-                    });
-                },
-                TileType::StairDown if current_level.level < 50 => {
-                    println!("Going down to level {}", current_level.level + 1);
-                    // Save current map with tile visibility
-                    let current_visibility = capture_tile_visibility(&tile_visibility_query, map.width, map.height);
-                    level_maps.maps.insert(current_level.level, map.to_saved_data(current_level.biome, current_visibility));
-                    // Trigger level change
-                    level_change_events.write(LevelChangeEvent {
-                        new_level: current_level.level + 1,
-                        spawn_position: SpawnPosition::StairUp,
-                    });
-                },
-                TileType::StairUp => {
-                    println!("Cannot go up from the surface!");
-                },
-                TileType::StairDown => {
-                    println!("Cannot go deeper - you've reached the bottom!");
-                },
-                _ => {
-                    println!("No stairs here to use.");
-                }
-            }
-        }
-    }
-}
-
-pub fn debug_map_regeneration(
-    keyboard_input: Res<ButtonInput<KeyCode>>,
-    mut regenerate_events: EventWriter<RegenerateMapEvent>,
-) {
-    if keyboard_input.just_pressed(KeyCode::KeyR) && 
-       (keyboard_input.pressed(KeyCode::ShiftLeft) || keyboard_input.pressed(KeyCode::ShiftRight)) {
-        println!("Regenerating current level map...");
-        regenerate_events.write(RegenerateMapEvent);
-    }
-}
-
-pub fn debug_biome_cycling(
-    keyboard_input: Res<ButtonInput<KeyCode>>,
-    mut current_level: ResMut<CurrentLevel>,
-    mut regenerate_events: EventWriter<RegenerateMapEvent>,
-) {
-    if keyboard_input.just_pressed(KeyCode::KeyB) && 
-       (keyboard_input.pressed(KeyCode::ShiftLeft) || keyboard_input.pressed(KeyCode::ShiftRight)) {
-        
-        // Cycle between implemented biomes: Caverns -> Cinder Gaol -> Underglade -> back to Caverns
-        current_level.biome = match current_level.biome {
-            BiomeType::Caverns => {
-                println!("Cycling from Caverns to Cinder Gaol");
-                BiomeType::CinderGaol
-            },
-            BiomeType::CinderGaol => {
-                println!("Cycling from Cinder Gaol to Underglade");
-                BiomeType::Underglade
-            },
-            BiomeType::Underglade => {
-                println!("Cycling from Underglade back to Caverns");
-                BiomeType::Caverns
-            },
-            _ => BiomeType::Caverns, // Fallback to Caverns for other biomes
-        };
-        
-        println!("Current biome: {:?}", current_level.biome);
-        println!("Regenerating map with new biome...");
-        regenerate_events.write(RegenerateMapEvent);
-    }
-}
-
-#[derive(Event)]
-pub struct PlayerMoveIntent {
-    pub direction: MoveDirection,
-}
-
-#[derive(Clone, Copy, PartialEq)]
-pub enum MoveDirection {
-    Up,
-    Down,
-    Left,
-    Right,
-}
-
-#[derive(Event)]
-pub struct LevelChangeEvent {
-    pub new_level: u32,
-    pub spawn_position: SpawnPosition,
-}
-
-#[derive(Event)]
-pub struct RegenerateMapEvent;
-
-#[derive(Clone, Copy)]
-pub enum SpawnPosition {
-    StairUp,
-    StairDown,
-    Center,
-}
-
 // ============================================================================
 // AUTOEXPLORE SYSTEMS
 // ============================================================================
-
-pub fn toggle_autoexplore(
-    keyboard_input: Res<ButtonInput<KeyCode>>,
-    mut commands: Commands,
-    mut player_query: Query<(Entity, &Player, Option<&Autoexplore>)>,
-    tile_visibility_query: Query<(&TilePos, &TileVisibilityState)>,
-    map: Res<GameMap>,
-) {
-    // Check for Shift+A to toggle, or ESC to cancel
-    let toggle_pressed = keyboard_input.just_pressed(KeyCode::KeyA) &&
-                        (keyboard_input.pressed(KeyCode::ShiftLeft) || keyboard_input.pressed(KeyCode::ShiftRight));
-    let cancel_pressed = keyboard_input.just_pressed(KeyCode::Escape);
-
-    if toggle_pressed || cancel_pressed {
-        if let Ok((entity, _player, autoexplore_opt)) = player_query.single_mut() {
-            if autoexplore_opt.is_some() {
-                // Remove component entirely to stop autoexplore
-                commands.entity(entity).remove::<Autoexplore>();
-                println!("Autoexplore disabled");
-            } else if toggle_pressed {
-                // Only enable on Shift+A, not on ESC
-                // Check if there are unexplored tiles
-                let unexplored_count = count_unexplored_tiles(&tile_visibility_query, &map);
-                if unexplored_count > 0 {
-                    commands.entity(entity).insert(Autoexplore::default());
-                    println!("Autoexplore enabled - {} tiles to explore", unexplored_count);
-                } else {
-                    println!("Map fully explored!");
-                }
-            }
-        }
-    }
-}
 
 pub fn run_autoexplore(
     mut commands: Commands,
@@ -481,8 +193,12 @@ pub fn run_autoexplore(
     }
 }
 
-// Find nearest unexplored tile using breadth-first search
-fn find_nearest_unexplored(
+// ============================================================================
+// AUTOEXPLORE HELPER FUNCTIONS (Public for input_handler)
+// ============================================================================
+
+/// Find nearest unexplored tile using breadth-first search
+pub fn find_nearest_unexplored(
     player: &Player,
     tile_visibility_query: &Query<(&TilePos, &TileVisibilityState)>,
     map: &GameMap,
@@ -528,8 +244,8 @@ fn find_nearest_unexplored(
     None
 }
 
-// Simple A* pathfinding
-fn find_path(start: (u32, u32), goal: (u32, u32), map: &GameMap) -> Vec<(u32, u32)> {
+/// Simple A* pathfinding
+pub fn find_path(start: (u32, u32), goal: (u32, u32), map: &GameMap) -> Vec<(u32, u32)> {
     use std::collections::{BinaryHeap, HashMap};
     use std::cmp::Ordering;
 
@@ -608,7 +324,8 @@ fn find_path(start: (u32, u32), goal: (u32, u32), map: &GameMap) -> Vec<(u32, u3
     Vec::new() // No path found
 }
 
-fn count_unexplored_tiles(
+/// Count unexplored tiles on the map
+pub fn count_unexplored_tiles(
     tile_visibility_query: &Query<(&TilePos, &TileVisibilityState)>,
     map: &GameMap,
 ) -> usize {

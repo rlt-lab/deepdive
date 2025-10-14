@@ -4,7 +4,7 @@ use bevy_ecs_tilemap::prelude::*;
 use crate::assets::{GameAssets, SpriteDatabase, sprite_position_to_index};
 use crate::components::*;
 use crate::map::{GameMap, select_biome_asset};
-use crate::player::{LevelChangeEvent, RegenerateMapEvent, SpawnPosition};
+use crate::input_handler::{LevelChangeEvent, RegenerateMapEvent, SpawnPosition};
 use crate::states::GameState;
 use crate::biome::BiomeType;
 

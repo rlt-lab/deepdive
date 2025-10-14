@@ -13,6 +13,7 @@ mod map;
 mod map_generation;
 mod map_generation_compact;
 mod player;
+mod input_handler;
 mod camera;
 mod level_manager;
 mod fov;
@@ -24,6 +25,7 @@ use assets::{GameAssets, SpriteDatabase};
 use states::GameState;
 use map::spawn_map;
 use player::*;
+use input_handler::*;
 use camera::*;
 use level_manager::LevelManagerPlugin;
 use fov::FovPlugin;
@@ -62,6 +64,7 @@ fn main() {
         .init_state::<GameState>()
         .init_resource::<TileIndex>()
         .init_resource::<TilePool>()
+        .init_resource::<KeyBindings>()
         // Register component types for reflection
         .register_type::<Player>()
         .register_type::<MovementAnimation>()
@@ -103,7 +106,7 @@ fn main() {
         ))
         .add_systems(Update, (
             detect_movement_input,
-            handle_input.after(detect_movement_input),
+            handle_movement_input.after(detect_movement_input),
             handle_stair_interaction,
             toggle_autoexplore,
             run_autoexplore,

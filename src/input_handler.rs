@@ -78,7 +78,7 @@ impl Default for KeyBindings {
             
             // Level transitions
             stair_up: vec![KeyCode::KeyS],      // S - go up stairs
-            stair_down: vec![KeyCode::KeyX],    // X - go down stairs
+            stair_down: vec![KeyCode::KeyD],    // D - go down stairs
             
             // Autoexplore
             toggle_autoexplore: vec![KeyCode::KeyA],
@@ -380,9 +380,8 @@ pub fn toggle_autoexplore(
     tile_visibility_query: Query<(&TilePos, &TileVisibilityState)>,
     map: Res<GameMap>,
 ) {
-    // Check for Shift+A to toggle, or ESC to cancel
-    let shift_held = keyboard_input.pressed(KeyCode::ShiftLeft) || keyboard_input.pressed(KeyCode::ShiftRight);
-    let toggle_pressed = key_bindings.is_just_pressed(&key_bindings.toggle_autoexplore, &keyboard_input) && shift_held;
+    // Check for A to toggle, or ESC to cancel
+    let toggle_pressed = key_bindings.is_just_pressed(&key_bindings.toggle_autoexplore, &keyboard_input);
     let cancel_pressed = key_bindings.is_just_pressed(&key_bindings.cancel_autoexplore, &keyboard_input);
 
     if toggle_pressed || cancel_pressed {
@@ -392,7 +391,7 @@ pub fn toggle_autoexplore(
                 commands.entity(entity).remove::<Autoexplore>();
                 println!("Autoexplore disabled");
             } else if toggle_pressed {
-                // Only enable on Shift+A, not on ESC
+                // Only enable on A, not on ESC
                 // Check if there are unexplored tiles
                 let unexplored_count = count_unexplored_tiles(&tile_visibility_query, &map);
                 if unexplored_count > 0 {

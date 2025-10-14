@@ -10,25 +10,25 @@ KeyBindings(
         left: [ArrowLeft],
         right: [ArrowRight],
     ),
-    
+
     // Level transition keys
     level_transition: LevelTransition(
         move_up: [KeyS],      // Go up stairs / ascend
-        move_down: [KeyX],    // Go down stairs / descend
+        move_down: [KeyD],    // Go down stairs / descend
     ),
-    
+
     // Interaction keys
     interaction: Interaction(
         pickup_item: [],  // Future: item pickup
         interact: [],     // Future: talk to NPCs, open doors
     ),
-    
+
     // Autoexplore keys
     autoexplore: Autoexplore(
-        toggle: [KeyA],          // Must be pressed with Shift
+        toggle: [KeyA],          // Toggle autoexplore
         cancel: [Escape],
     ),
-    
+
     // Debug keys (require Shift modifier)
     debug: Debug(
         regenerate_map: [KeyR],
@@ -36,14 +36,14 @@ KeyBindings(
         toggle_fov: [KeyO],
         show_los_cache: [KeyL],
     ),
-    
+
     // Camera keys
     camera: Camera(
         zoom_in: [],      // Future: zoom controls
         zoom_out: [],     // Future: zoom controls
         reset_zoom: [KeyR],  // Without shift
     ),
-    
+
     // UI/Menu keys (future)
     ui: UI(
         inventory: [KeyI],

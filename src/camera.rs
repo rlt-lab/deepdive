@@ -28,7 +28,7 @@ pub fn setup_camera_follow(
 pub fn camera_follow_system(
     time: Res<Time>,
     mut camera_query: Query<(&mut Transform, &mut CameraFollow), (With<GameCamera>, Without<Player>)>,
-    player_query: Query<&Transform, (With<Player>, Without<GameCamera>)>,
+    player_query: Query<&Transform, (With<Player>, Without<GameCamera>, Changed<Transform>)>,
     map: Res<GameMap>,
 ) {
     if let (Ok((mut camera_transform, camera_follow)), Ok(player_transform)) = 
@@ -85,8 +85,8 @@ pub fn camera_zoom_system(
             camera_follow.target_zoom = (camera_follow.target_zoom / 1.2).max(0.5); // Zoom out, min 0.5x
         }
         
-        // Reset zoom with R key
-        if keyboard_input.just_pressed(KeyCode::KeyR) {
+        // Reset zoom with F3 key (R conflicts with regenerate map)
+        if keyboard_input.just_pressed(KeyCode::F3) {
             camera_follow.target_zoom = 1.0;
         }
         
@@ -134,7 +134,7 @@ pub fn camera_debug_system(
         println!("Movement: WASD or Arrow Keys");
         println!("Zoom In: + or NumPad +");
         println!("Zoom Out: - or NumPad -");
-        println!("Reset Zoom: R");
+        println!("Reset Zoom: F3");
         println!("Debug Info: F1");
         println!("Controls Help: F2");
         println!("=======================");

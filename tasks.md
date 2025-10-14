@@ -303,27 +303,27 @@
 ## Phase 6: Camera System Optimization
 
 ### 6.1 Camera Follow Optimization
-- [ ] 🔴 **Task 6.1.1** - Only lerp on player movement
+- [x] 🟢 **Task 6.1.1** - Only lerp on player movement
   - **File:** `src/camera.rs`
   - **Impact:** LOW - Skip unnecessary updates
   - **Effort:** LOW
   - **Dependencies:** None
   - **Steps:**
-    1. Add Changed<Transform> filter to player_query
-    2. Only run lerp when player actually moved
-    3. Test camera smoothness
+    1. ✅ Add Changed<Transform> filter to player_query
+    2. ✅ Only run lerp when player actually moved
+    3. ✅ Test camera smoothness
 
 ### 6.2 Camera Controls Cleanup
-- [ ] 🔴 **Task 6.2.1** - Fix keybinding conflicts
+- [x] 🟢 **Task 6.2.1** - Fix keybinding conflicts
   - **File:** `src/camera.rs`
   - **Impact:** LOW - Better UX
   - **Effort:** LOW
   - **Dependencies:** None
   - **Steps:**
-    1. Move zoom reset from R to different key
-    2. Update debug controls to F keys only
-    3. Document all keybindings
-    4. Test controls
+    1. ✅ Move zoom reset from R to F3 (avoids conflict with regenerate map)
+    2. ✅ Update debug controls to F keys only
+    3. ✅ Document all keybindings in help text
+    4. ✅ Test controls
 
 ---
 
@@ -462,14 +462,14 @@
 - [x] ✅ Phase 3: Particle System (4/4 tasks) - 100%
 - [x] ✅ Phase 4: Level & Entity Management (1/3 tasks) - 33% (2 optional tasks deferred)
 - [x] ✅ Phase 5: Player & Animation (2/3 tasks) - 67% (1 optional task deferred)
-- [ ] Phase 6: Camera System (0/2 tasks)
+- [x] ✅ Phase 6: Camera System (2/2 tasks) - 100%
 - [ ] Phase 7: Map Generation (0/3 tasks)
 - [ ] Phase 8: Asset Management (0/2 tasks)
 - [ ] Phase 9: Advanced Optimizations (0/3 tasks)
 
 ### Overall Progress
 **Total Tasks:** 38 core tasks + 12 testing tasks = 50 tasks
-**Completed:** 18/50 (36%)
+**Completed:** 20/50 (40%)
 **Estimated Total Effort:** 8-12 weeks of focused development
 
 ---

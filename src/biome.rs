@@ -21,7 +21,6 @@ pub struct BiomeConfig {
     pub allowed_floor_assets: Vec<(u32, u32)>,
     pub allowed_wall_assets: Vec<(u32, u32)>,
     pub allowed_water_assets: Vec<(u32, u32)>,
-    pub allowed_stair_assets: Vec<(u32, u32)>,
 }
 
 // Static biome configurations initialized once
@@ -31,7 +30,6 @@ static CAVERNS_CONFIG: LazyLock<BiomeConfig> = LazyLock::new(|| BiomeConfig {
     allowed_floor_assets: vec![(0,6), (1,6), (2,6), (3,6)],
     allowed_wall_assets: vec![(0,0), (1,0), (0,1), (1,1)],
     allowed_water_assets: vec![(0,6), (1,6), (2,6), (3,6)],
-    allowed_stair_assets: vec![(7,16), (8,16)],
 });
 
 static UNDERGLADE_CONFIG: LazyLock<BiomeConfig> = LazyLock::new(|| BiomeConfig {
@@ -44,7 +42,6 @@ static UNDERGLADE_CONFIG: LazyLock<BiomeConfig> = LazyLock::new(|| BiomeConfig {
     ],
     allowed_wall_assets: vec![(0,0), (1,0), (0,1), (1,1)], // Dirt and rough stone walls
     allowed_water_assets: vec![(0,6)], // Dark grey water/blank floor for water areas
-    allowed_stair_assets: vec![(7,16), (8,16)], // Standard staircase assets
 });
 
 static FUNGAL_DEEP_CONFIG: LazyLock<BiomeConfig> = LazyLock::new(|| BiomeConfig {
@@ -53,7 +50,6 @@ static FUNGAL_DEEP_CONFIG: LazyLock<BiomeConfig> = LazyLock::new(|| BiomeConfig 
     allowed_floor_assets: vec![(4,0), (5,0), (4,1), (5,1)],
     allowed_wall_assets: vec![(1,7), (2,7), (3,7)],
     allowed_water_assets: vec![(0,6), (1,6), (2,6), (3,6)],
-    allowed_stair_assets: vec![(1,8), (2,8), (3,8)],
 });
 
 static CINDER_GAOL_CONFIG: LazyLock<BiomeConfig> = LazyLock::new(|| BiomeConfig {
@@ -65,7 +61,6 @@ static CINDER_GAOL_CONFIG: LazyLock<BiomeConfig> = LazyLock::new(|| BiomeConfig 
     ],
     allowed_wall_assets: vec![(0,3), (1,3), (0,5), (1,5)], // Igneous and catacombs walls only
     allowed_water_assets: vec![], // No water in prison
-    allowed_stair_assets: vec![(7,16), (8,16)], // Standard staircase assets
 });
 
 static ABYSSAL_HOLD_CONFIG: LazyLock<BiomeConfig> = LazyLock::new(|| BiomeConfig {
@@ -74,7 +69,6 @@ static ABYSSAL_HOLD_CONFIG: LazyLock<BiomeConfig> = LazyLock::new(|| BiomeConfig
     allowed_floor_assets: vec![(8,0), (9,0), (8,1), (9,1)],
     allowed_wall_assets: vec![(1,7), (2,7), (3,7)],
     allowed_water_assets: vec![(0,6), (1,6), (2,6), (3,6)],
-    allowed_stair_assets: vec![(1,8), (2,8), (3,8)],
 });
 
 static NETHER_GRANGE_CONFIG: LazyLock<BiomeConfig> = LazyLock::new(|| BiomeConfig {
@@ -83,7 +77,6 @@ static NETHER_GRANGE_CONFIG: LazyLock<BiomeConfig> = LazyLock::new(|| BiomeConfi
     allowed_floor_assets: vec![(10,0), (11,0), (10,1), (11,1)],
     allowed_wall_assets: vec![(1,7), (2,7), (3,7)],
     allowed_water_assets: vec![(0,6), (1,6), (2,6), (3,6)],
-    allowed_stair_assets: vec![(1,8), (2,8), (3,8)],
 });
 
 static CHTHONIC_CRYPTS_CONFIG: LazyLock<BiomeConfig> = LazyLock::new(|| BiomeConfig {
@@ -92,7 +85,6 @@ static CHTHONIC_CRYPTS_CONFIG: LazyLock<BiomeConfig> = LazyLock::new(|| BiomeCon
     allowed_floor_assets: vec![(12,0), (13,0), (12,1), (13,1)],
     allowed_wall_assets: vec![(1,7), (2,7), (3,7)],
     allowed_water_assets: vec![(0,6), (1,6), (2,6), (3,6)],
-    allowed_stair_assets: vec![(1,8), (2,8), (3,8)],
 });
 
 static HYPOGEAL_KNOT_CONFIG: LazyLock<BiomeConfig> = LazyLock::new(|| BiomeConfig {
@@ -101,7 +93,6 @@ static HYPOGEAL_KNOT_CONFIG: LazyLock<BiomeConfig> = LazyLock::new(|| BiomeConfi
     allowed_floor_assets: vec![(14,0), (15,0), (14,1), (15,1)],
     allowed_wall_assets: vec![(1,7), (2,7), (3,7)],
     allowed_water_assets: vec![(0,6), (1,6), (2,6), (3,6)],
-    allowed_stair_assets: vec![(1,8), (2,8), (3,8)],
 });
 
 static STYGIAN_POOL_CONFIG: LazyLock<BiomeConfig> = LazyLock::new(|| BiomeConfig {
@@ -110,7 +101,6 @@ static STYGIAN_POOL_CONFIG: LazyLock<BiomeConfig> = LazyLock::new(|| BiomeConfig
     allowed_floor_assets: vec![(16,0), (17,0), (16,1), (17,1)],
     allowed_wall_assets: vec![(1,7), (2,7), (3,7)],
     allowed_water_assets: vec![(0,6), (1,6), (2,6), (3,6)],
-    allowed_stair_assets: vec![(1,8), (2,8), (3,8)],
 });
 
 impl BiomeType {

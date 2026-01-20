@@ -6,7 +6,7 @@ use crate::assets::{GameAssets, sprite_position_to_index};
 use crate::components::*;
 use crate::constants::{MAP_WIDTH, MAP_HEIGHT, TILE_SIZE};
 use crate::map::{GameMap, select_biome_asset};
-use crate::input_handler::{LevelChangeEvent, RegenerateMapEvent, SpawnPosition};
+use crate::events::{LevelChangeEvent, RegenerateMapEvent, SpawnPosition};
 use crate::states::GameState;
 use crate::biome::BiomeType;
 

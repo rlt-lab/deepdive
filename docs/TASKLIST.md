@@ -214,30 +214,30 @@ For each phase:
 
 | # | File | Task | Status |
 |---|------|------|--------|
-| 7.1.1 | Create `src/events.rs` module | [ ] |
-| 7.1.2 | events.rs | Move `LevelChangeEvent`, `RegenerateMapEvent`, `SpawnPosition` from input_handler.rs | [ ] |
-| 7.1.3 | events.rs | Move shared functions if needed by both modules | [ ] |
-| 7.1.4 | input_handler.rs | Replace definitions with `use crate::events::*;` | [ ] |
-| 7.1.5 | level_manager.rs | Update imports to use events module | [ ] |
-| 7.1.6 | main.rs | Add `mod events;` | [ ] |
+| 7.1.1 | Create `src/events.rs` module | [x] |
+| 7.1.2 | events.rs | Move `LevelChangeEvent`, `RegenerateMapEvent`, `SpawnPosition` from input_handler.rs | [x] |
+| 7.1.3 | events.rs | Move shared functions if needed by both modules | [x] N/A |
+| 7.1.4 | input_handler.rs | Replace definitions with `use crate::events::*;` | [x] |
+| 7.1.5 | level_manager.rs | Update imports to use events module | [x] |
+| 7.1.6 | main.rs | Add `mod events;` | [x] |
 
 ### 7.2 Remove Unused Code (P1)
 
 | # | File | Task | Status |
 |---|------|------|--------|
-| 7.2.1 | biome.rs | Remove `allowed_stair_assets` field from `BiomeConfig` | [ ] |
-| 7.2.2 | biome.rs | Remove `allowed_stair_assets` from all biome config initializations | [ ] |
+| 7.2.1 | biome.rs | Remove `allowed_stair_assets` field from `BiomeConfig` | [x] |
+| 7.2.2 | biome.rs | Remove `allowed_stair_assets` from all biome config initializations | [x] |
 
 ### 7.3 Split input_handler.rs (P3) — Optional
 
 | # | Task | Status |
 |---|------|--------|
-| 7.3.1 | Create `src/input/mod.rs` with re-exports | [ ] |
-| 7.3.2 | Create `src/input/movement.rs` | [ ] |
-| 7.3.3 | Create `src/input/interaction.rs` | [ ] |
-| 7.3.4 | Create `src/input/autoexplore.rs` | [ ] |
-| 7.3.5 | Create `src/input/debug.rs` | [ ] |
-| 7.3.6 | Update main.rs imports | [ ] |
+| 7.3.1 | Create `src/input/mod.rs` with re-exports | [x] |
+| 7.3.2 | Create `src/input/movement.rs` | [x] |
+| 7.3.3 | Create `src/input/interaction.rs` | [x] |
+| 7.3.4 | Create `src/input/autoexplore.rs` | [x] |
+| 7.3.5 | Create `src/input/debug.rs` | [x] |
+| 7.3.6 | Update main.rs imports | [x] |
 
 ---
 
@@ -340,11 +340,11 @@ For each phase:
 | 4 | FOV System (TDD) | 13 | P1-P2 | [x] Complete |
 | 5 | TileIndex Optimization | 9 | P0 | [x] Complete |
 | 6 | Particle System | 9 | P1 | [x] Complete |
-| 7 | Architecture Cleanup | 14 | P1-P3 | [ ] |
+| 7 | Architecture Cleanup | 14 | P1-P3 | [x] Complete |
 | 8 | Integration & Property Tests | 16 | P1-P2 | [ ] |
 | 9 | Polish | 17 | P1-P3 | [ ] |
 | D | Deferred (FOV Spatial Grid) | 4 | P2 | [ ] |
-| **Total** | | **126** | | **75/126** |
+| **Total** | | **126** | | **89/126** |
 
 ---
 

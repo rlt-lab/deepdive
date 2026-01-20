@@ -45,7 +45,7 @@ pub fn should_recalculate_fov(
 ) -> bool {
     map.is_some() && (
         fov_state.needs_recalculation ||
-        (fov_state.debug_reveal_all && !fov_state.debug_mode_applied)
+        (fov_state.debug_reveal_all && !fov_state.is_debug_mode_applied)
     )
 }
 
@@ -65,11 +65,11 @@ pub fn calculate_fov(
 
     // If debug mode is on, reveal all tiles (only once)
     if fov_state.debug_reveal_all {
-        if !fov_state.debug_mode_applied {
+        if !fov_state.is_debug_mode_applied {
             for (_, mut visibility_state) in tile_query.iter_mut() {
                 visibility_state.visibility = TileVisibility::Visible;
             }
-            fov_state.debug_mode_applied = true;
+            fov_state.is_debug_mode_applied = true;
         }
         fov_state.needs_recalculation = false;
         fov_state.last_player_pos = Some((player.x, player.y));
@@ -77,8 +77,8 @@ pub fn calculate_fov(
     }
 
     // Reset debug mode tracking when not in debug mode
-    if fov_state.debug_mode_applied {
-        fov_state.debug_mode_applied = false;
+    if fov_state.is_debug_mode_applied {
+        fov_state.is_debug_mode_applied = false;
     }
 
     let player_x = player.x as i32;
@@ -93,7 +93,9 @@ pub fn calculate_fov(
 
     if use_incremental {
         // INCREMENTAL UPDATE: Only process tiles in union of old and new visible regions
-        let (old_x, old_y) = fov_state.last_player_pos.unwrap();
+        let (old_x, old_y) = fov_state
+            .last_player_pos
+            .expect("last_player_pos confirmed Some by use_incremental guard");
         fov_state.dirty_tiles.clear();
 
         // Calculate bounding box of union region
@@ -303,7 +305,7 @@ pub fn handle_fov_debug_controls(
     if keyboard_input.just_pressed(KeyCode::KeyO) &&
        (keyboard_input.pressed(KeyCode::ShiftLeft) || keyboard_input.pressed(KeyCode::ShiftRight)) {
         fov_state.debug_reveal_all = !fov_state.debug_reveal_all;
-        fov_state.debug_mode_applied = false; // Reset flag to trigger recalculation
+        fov_state.is_debug_mode_applied = false; // Reset flag to trigger recalculation
         fov_state.needs_recalculation = true;
         println!("FOV debug reveal: {}", if fov_state.debug_reveal_all { "ON" } else { "OFF" });
     }

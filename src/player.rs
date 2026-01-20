@@ -109,13 +109,13 @@ pub fn run_autoexplore(
     map: Res<GameMap>,
 ) {
     if let Ok((entity, mut player, mut autoexplore, mut sprite)) = player_query.single_mut() {
-        if !autoexplore.active {
+        if !autoexplore.is_active {
             // Try to activate if component exists
             let unexplored = find_nearest_unexplored(&player, &tile_visibility_query, &map);
             if let Some(target) = unexplored {
                 autoexplore.target = Some(target);
                 autoexplore.path = VecDeque::from(find_path((player.x, player.y), target, &map));
-                autoexplore.active = true;
+                autoexplore.is_active = true;
             } else {
                 // No more unexplored tiles - remove component
                 commands.entity(entity).remove::<Autoexplore>();
@@ -162,11 +162,11 @@ pub fn run_autoexplore(
             } else {
                 // Path blocked, recalculate
                 autoexplore.path.clear();
-                autoexplore.active = false;
+                autoexplore.is_active = false;
             }
         } else {
             // Reached target or path empty, find new target
-            autoexplore.active = false;
+            autoexplore.is_active = false;
         }
     }
 }

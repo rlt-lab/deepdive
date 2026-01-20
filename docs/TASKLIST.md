@@ -259,12 +259,12 @@ For each phase:
 
 | # | File | Properties | Status |
 |---|------|------------|--------|
-| 8.2.1 | `tests/property_map_gen.rs` | All generated maps are connected | [ ] |
-| 8.2.2 | `tests/property_map_gen.rs` | Stairs always accessible from spawn | [ ] |
-| 8.2.3 | `tests/property_pathfinding.rs` | A* finds path iff path exists | [ ] |
-| 8.2.4 | `tests/property_pathfinding.rs` | Returned path is always valid | [ ] |
-| 8.2.5 | `tests/property_fov.rs` | LOS is symmetric | [ ] |
-| 8.2.6 | `tests/property_fov.rs` | Visible tiles within radius bounds | [ ] |
+| 8.2.1 | `tests/property_map_gen.rs` | All generated maps are connected | [x] |
+| 8.2.2 | `tests/property_map_gen.rs` | Stairs always accessible from spawn | [x] |
+| 8.2.3 | `tests/property_pathfinding.rs` | A* finds path iff path exists | [x] |
+| 8.2.4 | `tests/property_pathfinding.rs` | Returned path is always valid | [x] |
+| 8.2.5 | `tests/property_fov.rs` | LOS is symmetric | [x] (ignored, BUG-003) |
+| 8.2.6 | `tests/property_fov.rs` | Visible tiles within radius bounds | [x] |
 
 ### 8.3 Map Generation Tests (P1)
 
@@ -285,18 +285,18 @@ For each phase:
 
 | # | File | Task | Status |
 |---|------|------|--------|
-| 9.1.1 | All remaining `.unwrap()` calls | Convert to `.expect()` with context | [ ] |
+| 9.1.1 | All remaining `.unwrap()` calls | Convert to `.expect()` with context | [x] |
 
 ### 9.2 Naming Consistency (P3)
 
 | # | File | Change | Status |
 |---|------|--------|--------|
-| 9.2.1 | components.rs | `Autoexplore.active` → `is_active` | [ ] |
-| 9.2.2 | components.rs | `FovSettings.debug_mode_applied` → `is_debug_mode_applied` | [ ] |
-| 9.2.3 | components.rs | `ParticleSettings.enabled` → `is_enabled` | [ ] |
-| 9.2.4 | components.rs | `ParticleSettings.debug_mode` → `is_debug_mode` | [ ] |
-| 9.2.5 | components.rs | `ParticleSpawner.initial_spawn_complete` → `has_initial_spawn_completed` | [ ] |
-| 9.2.6 | particles.rs | `BiomeParticleConfig.enabled` → `is_enabled` | [ ] |
+| 9.2.1 | components.rs | `Autoexplore.active` → `is_active` | [x] |
+| 9.2.2 | components.rs | `FovSettings.debug_mode_applied` → `is_debug_mode_applied` | [x] |
+| 9.2.3 | components.rs | `ParticleSettings.enabled` → `is_enabled` | [x] |
+| 9.2.4 | components.rs | `ParticleSettings.debug_mode` → `is_debug_mode` | [x] |
+| 9.2.5 | components.rs | `ParticleSpawner.initial_spawn_complete` → `has_initial_spawn_completed` | [x] |
+| 9.2.6 | particles.rs | `BiomeParticleConfig.enabled` → `is_enabled` | [x] |
 
 ### 9.3 Long Function Refactoring (P3) — Optional
 
@@ -341,10 +341,10 @@ For each phase:
 | 5 | TileIndex Optimization | 9 | P0 | [x] Complete |
 | 6 | Particle System | 9 | P1 | [x] Complete |
 | 7 | Architecture Cleanup | 14 | P1-P3 | [x] Complete |
-| 8 | Integration & Property Tests | 16 | P1-P2 | [ ] |
+| 8 | Integration & Property Tests | 16 | P1-P2 | [x] Complete |
 | 9 | Polish | 17 | P1-P3 | [ ] |
 | D | Deferred (FOV Spatial Grid) | 4 | P2 | [ ] |
-| **Total** | | **126** | | **98/126** |
+| **Total** | | **126** | | **121/126** |
 
 ---
 

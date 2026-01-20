@@ -58,7 +58,7 @@ pub struct MovementInput {
 #[derive(Component, Reflect)]
 #[reflect(Component)]
 pub struct Autoexplore {
-    pub active: bool,
+    pub is_active: bool,
     #[reflect(ignore)]
     pub path: VecDeque<(u32, u32)>,
     pub target: Option<(u32, u32)>,
@@ -68,7 +68,7 @@ pub struct Autoexplore {
 impl Default for Autoexplore {
     fn default() -> Self {
         Self {
-            active: false,
+            is_active: false,
             path: VecDeque::new(),
             target: None,
             move_timer: Timer::from_seconds(0.001, TimerMode::Repeating), // Blazing fast auto-movement
@@ -298,7 +298,7 @@ impl Default for FovConfig {
 pub struct FovState {
     pub debug_reveal_all: bool,
     pub needs_recalculation: bool,
-    pub debug_mode_applied: bool,
+    pub is_debug_mode_applied: bool,
     pub last_player_pos: Option<(u32, u32)>,
     pub dirty_tiles: std::collections::HashSet<(u32, u32)>,
 }
@@ -308,7 +308,7 @@ impl Default for FovState {
         Self {
             debug_reveal_all: false,
             needs_recalculation: true,
-            debug_mode_applied: false,
+            is_debug_mode_applied: false,
             last_player_pos: None,
             dirty_tiles: std::collections::HashSet::new(),
         }
@@ -340,7 +340,7 @@ pub struct FovSettings {
     pub radius: u32,
     pub debug_reveal_all: bool,
     pub needs_recalculation: bool,
-    pub debug_mode_applied: bool,
+    pub is_debug_mode_applied: bool,
     pub last_player_pos: Option<(u32, u32)>,
     pub dirty_tiles: std::collections::HashSet<(u32, u32)>,
     pub los_cache: std::collections::HashMap<(u32, u32, u32, u32), bool>,
@@ -354,7 +354,7 @@ impl Default for FovSettings {
             radius: FOV_RADIUS,
             debug_reveal_all: false,
             needs_recalculation: true,
-            debug_mode_applied: false,
+            is_debug_mode_applied: false,
             last_player_pos: None,
             dirty_tiles: std::collections::HashSet::new(),
             los_cache: std::collections::HashMap::new(),
@@ -370,7 +370,7 @@ pub struct ParticleSpawner {
     pub secondary_timer: Timer,
     pub current_biome: BiomeType,
     pub config: crate::particles::BiomeParticleConfig,
-    pub initial_spawn_complete: bool,
+    pub has_initial_spawn_completed: bool,
 }
 
 #[derive(Resource)]
@@ -384,16 +384,16 @@ pub struct WindState {
 #[derive(Resource)]
 pub struct ParticleSettings {
     pub density_multiplier: f32,
-    pub enabled: bool,
-    pub debug_mode: bool,
+    pub is_enabled: bool,
+    pub is_debug_mode: bool,
 }
 
 impl Default for ParticleSettings {
     fn default() -> Self {
         Self {
             density_multiplier: 6.0, // 6x density for very rich atmospheric effects
-            enabled: true,
-            debug_mode: false,
+            is_enabled: true,
+            is_debug_mode: false,
         }
     }
 }

@@ -324,7 +324,7 @@ fn fov_state_default() {
     let state = FovState::default();
     assert!(!state.debug_reveal_all);
     assert!(state.needs_recalculation);
-    assert!(!state.debug_mode_applied);
+    assert!(!state.is_debug_mode_applied);
     assert!(state.last_player_pos.is_none());
     assert!(state.dirty_tiles.is_empty());
 }

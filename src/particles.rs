@@ -28,7 +28,7 @@ pub struct BiomeParticleConfig {
     pub secondary_velocity_range: (Vec2, Vec2),
     pub wind_strength_multiplier: f32,
     pub movement_style: MovementStyle,
-    pub enabled: bool,
+    pub is_enabled: bool,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -66,7 +66,7 @@ impl BiomeParticleConfig {
                 secondary_velocity_range: (Vec2::new(-5.0, -4.0), Vec2::new(5.0, 4.0)),
                 wind_strength_multiplier: 1.2,
                 movement_style: MovementStyle::Gentle,
-                enabled: true,
+                is_enabled: true,
             },
             BiomeType::FungalDeep => Self {
                 primary_max_particles: 300,
@@ -91,7 +91,7 @@ impl BiomeParticleConfig {
                 secondary_velocity_range: (Vec2::new(-8.0, -6.0), Vec2::new(8.0, 6.0)),
                 wind_strength_multiplier: 0.8,
                 movement_style: MovementStyle::Erratic,
-                enabled: true,
+                is_enabled: true,
             },
             BiomeType::Caverns => Self {
                 primary_max_particles: 300,
@@ -116,7 +116,7 @@ impl BiomeParticleConfig {
                 secondary_velocity_range: (Vec2::new(-2.0, -1.0), Vec2::new(2.0, 3.0)),
                 wind_strength_multiplier: 0.5,
                 movement_style: MovementStyle::Floating,
-                enabled: true,
+                is_enabled: true,
             },
             BiomeType::CinderGaol => Self {
                 primary_max_particles: 300,
@@ -141,7 +141,7 @@ impl BiomeParticleConfig {
                 secondary_velocity_range: (Vec2::new(-4.0, -2.0), Vec2::new(4.0, 2.0)),
                 wind_strength_multiplier: 1.5,
                 movement_style: MovementStyle::Swirling,
-                enabled: true,
+                is_enabled: true,
             },
             BiomeType::StygianPool => Self {
                 primary_max_particles: 300,
@@ -166,7 +166,7 @@ impl BiomeParticleConfig {
                 secondary_velocity_range: (Vec2::new(-3.0, -2.0), Vec2::new(3.0, 4.0)),
                 wind_strength_multiplier: 0.7,
                 movement_style: MovementStyle::Flowing,
-                enabled: true,
+                is_enabled: true,
             },
             // Biomes with no particle effects
             BiomeType::AbyssalHold | BiomeType::NetherGrange | 
@@ -186,7 +186,7 @@ impl BiomeParticleConfig {
                 secondary_velocity_range: (Vec2::ZERO, Vec2::ZERO),
                 wind_strength_multiplier: 0.0,
                 movement_style: MovementStyle::Gentle,
-                enabled: false,
+                is_enabled: false,
             },
         }
     }
@@ -204,7 +204,7 @@ impl Default for ParticleSpawner {
             secondary_timer: Timer::from_seconds(1.0 / config.secondary_spawn_rate.max(0.1), TimerMode::Repeating),
             current_biome: BiomeType::Caverns,
             config,
-            initial_spawn_complete: false,
+            has_initial_spawn_completed: false,
         }
     }
 }
@@ -252,7 +252,7 @@ fn update_particle_spawner(
     if spawner.current_biome != current_level.biome {
         spawner.current_biome = current_level.biome;
         spawner.config = BiomeParticleConfig::for_biome(current_level.biome);
-        spawner.initial_spawn_complete = false;
+        spawner.has_initial_spawn_completed = false;
 
         // Update timers with new spawn rates
         if spawner.config.primary_spawn_rate > 0.0 {
@@ -266,10 +266,10 @@ fn update_particle_spawner(
         wind_state.base_multiplier = spawner.config.wind_strength_multiplier;
 
         println!("Particle system updated for biome: {:?} (enabled: {})",
-                current_level.biome, spawner.config.enabled);
+                current_level.biome, spawner.config.is_enabled);
     }
 
-    if !settings.enabled || !spawner.config.enabled {
+    if !settings.is_enabled || !spawner.config.is_enabled {
         return;
     }
 
@@ -297,7 +297,7 @@ fn spawn_biome_particles(
     map: Res<GameMap>,
     mut rng: ResMut<GlobalRng>,
 ) {
-    if !settings.enabled || !spawner.config.enabled {
+    if !settings.is_enabled || !spawner.config.is_enabled {
         return;
     }
 
@@ -311,7 +311,7 @@ fn spawn_biome_particles(
     let secondary_count = particle_counts.secondary_count;
 
     // Initial spawn when entering a new biome
-    if !spawner.initial_spawn_complete {
+    if !spawner.has_initial_spawn_completed {
         let initial_primary = (spawner.config.primary_max_particles as f32 * 0.67) as usize;
         let initial_secondary = (spawner.config.secondary_max_particles as f32 * 0.67) as usize;
 
@@ -341,7 +341,7 @@ fn spawn_biome_particles(
             spawn_secondary_particle(&mut commands, spawn_pos, &spawner.config, rng.as_mut());
         }
 
-        spawner.initial_spawn_complete = true;
+        spawner.has_initial_spawn_completed = true;
         println!("Initial particle spawn complete for {:?} biome (primary: {}, secondary: {})",
                 spawner.current_biome, initial_primary, initial_secondary);
     }
@@ -512,7 +512,7 @@ fn update_biome_particles(
     map: Res<GameMap>,
     mut rng: ResMut<GlobalRng>,
 ) {
-    if !spawner.config.enabled {
+    if !spawner.config.is_enabled {
         return;
     }
 
@@ -677,7 +677,7 @@ fn update_wind_system(
     spawner: Res<ParticleSpawner>,
     mut rng: ResMut<GlobalRng>,
 ) {
-    if !spawner.config.enabled {
+    if !spawner.config.is_enabled {
         return;
     }
 
@@ -706,7 +706,7 @@ fn cleanup_particles(
     spawner: Res<ParticleSpawner>,
 ) {
     for (entity, particle) in particle_query.iter() {
-        if particle.lifetime.finished() || !spawner.config.enabled {
+        if particle.lifetime.finished() || !spawner.config.is_enabled {
             commands.entity(entity).despawn();
         }
     }
@@ -718,8 +718,8 @@ fn handle_particle_debug(
     spawner: Res<ParticleSpawner>,
 ) {
     if keyboard_input.just_pressed(KeyCode::F1) {
-        settings.enabled = !settings.enabled;
-        println!("Biome particles: {}", if settings.enabled { "enabled" } else { "disabled" });
+        settings.is_enabled = !settings.is_enabled;
+        println!("Biome particles: {}", if settings.is_enabled { "enabled" } else { "disabled" });
     }
     
     if keyboard_input.just_pressed(KeyCode::F2) {
@@ -733,9 +733,9 @@ fn handle_particle_debug(
     }
     
     if keyboard_input.just_pressed(KeyCode::F4) {
-        settings.debug_mode = !settings.debug_mode;
+        settings.is_debug_mode = !settings.is_debug_mode;
         println!("Particle debug mode: {} | Current biome: {:?} | Enabled: {}", 
-                if settings.debug_mode { "enabled" } else { "disabled" },
-                spawner.current_biome, spawner.config.enabled);
+                if settings.is_debug_mode { "enabled" } else { "disabled" },
+                spawner.current_biome, spawner.config.is_enabled);
     }
 }

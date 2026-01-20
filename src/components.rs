@@ -1,5 +1,6 @@
 use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
+use std::collections::VecDeque;
 
 use crate::biome::BiomeType;
 use crate::constants::{FOV_RADIUS, MAX_TILE_POOL};
@@ -58,7 +59,8 @@ pub struct MovementInput {
 #[reflect(Component)]
 pub struct Autoexplore {
     pub active: bool,
-    pub path: Vec<(u32, u32)>,
+    #[reflect(ignore)]
+    pub path: VecDeque<(u32, u32)>,
     pub target: Option<(u32, u32)>,
     pub move_timer: Timer,
 }
@@ -67,7 +69,7 @@ impl Default for Autoexplore {
     fn default() -> Self {
         Self {
             active: false,
-            path: Vec::new(),
+            path: VecDeque::new(),
             target: None,
             move_timer: Timer::from_seconds(0.001, TimerMode::Repeating), // Blazing fast auto-movement
         }
@@ -77,14 +79,15 @@ impl Default for Autoexplore {
 #[derive(Component, Reflect)]
 #[reflect(Component)]
 pub struct AutoMoveToStair {
-    pub path: Vec<(u32, u32)>,
+    #[reflect(ignore)]
+    pub path: VecDeque<(u32, u32)>,
     pub target: (u32, u32),
     pub stair_type: TileType,
     pub move_timer: Timer,
 }
 
 impl AutoMoveToStair {
-    pub fn new(target: (u32, u32), path: Vec<(u32, u32)>, stair_type: TileType) -> Self {
+    pub fn new(target: (u32, u32), path: VecDeque<(u32, u32)>, stair_type: TileType) -> Self {
         Self {
             path,
             target,

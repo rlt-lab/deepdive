@@ -92,33 +92,33 @@ For each phase:
 
 | # | Test Category | Tests to Write | Status |
 |---|---------------|----------------|--------|
-| 3.1.1 | Direct path | Path on empty map, straight line | [ ] |
-| 3.1.2 | Path around obstacles | Wall in the way, finds alternate route | [ ] |
-| 3.1.3 | No path | Completely blocked, returns empty Vec | [ ] |
-| 3.1.4 | Edge cases | Start=goal returns empty, adjacent tiles returns single step | [ ] |
-| 3.1.5 | Path validity | All steps are walkable, each step adjacent to previous | [ ] |
-| 3.1.6 | VecDeque operations | Test `front()`, `pop_front()` on path (will fail until 3.2) | [ ] |
+| 3.1.1 | Direct path | Path on empty map, straight line | [x] |
+| 3.1.2 | Path around obstacles | Wall in the way, finds alternate route | [x] |
+| 3.1.3 | No path | Completely blocked, returns empty Vec | [x] |
+| 3.1.4 | Edge cases | Start=goal returns empty, adjacent tiles returns single step | [x] |
+| 3.1.5 | Path validity | All steps are walkable, each step adjacent to previous | [x] |
+| 3.1.6 | VecDeque operations | Test `front()`, `pop_front()` on path | [x] |
 
 ### 3.2 Implement VecDeque Optimization (P0) — GREEN
 
 | # | File | Task | Status |
 |---|------|------|--------|
-| 3.2.1 | components.rs | Add `use std::collections::VecDeque;` | [ ] |
-| 3.2.2 | components.rs | Change `Autoexplore.path` from `Vec<(u32, u32)>` to `VecDeque<(u32, u32)>` | [ ] |
-| 3.2.3 | components.rs | Update `Autoexplore::default()` to use `VecDeque::new()` | [ ] |
-| 3.2.4 | components.rs | Change `AutoMoveToStair.path` from `Vec` to `VecDeque` | [ ] |
-| 3.2.5 | player.rs | Add `use std::collections::VecDeque;` | [ ] |
-| 3.2.6 | player.rs | Replace `path.first().copied()` with `path.front().copied()` (line 155) | [ ] |
-| 3.2.7 | player.rs | Replace `path.remove(0)` with `path.pop_front()` (line 183) | [ ] |
-| 3.2.8 | player.rs | Convert `find_path()` result to VecDeque at assignment | [ ] |
-| 3.2.9 | input_handler.rs | Add VecDeque import, update `path.first()` → `path.front()` (line 517) | [ ] |
-| 3.2.10 | input_handler.rs | Replace `path.remove(0)` with `path.pop_front()` (line 545) | [ ] |
+| 3.2.1 | components.rs | Add `use std::collections::VecDeque;` | [x] |
+| 3.2.2 | components.rs | Change `Autoexplore.path` from `Vec<(u32, u32)>` to `VecDeque<(u32, u32)>` | [x] |
+| 3.2.3 | components.rs | Update `Autoexplore::default()` to use `VecDeque::new()` | [x] |
+| 3.2.4 | components.rs | Change `AutoMoveToStair.path` from `Vec` to `VecDeque` | [x] |
+| 3.2.5 | player.rs | Add `use std::collections::VecDeque;` | [x] |
+| 3.2.6 | player.rs | Replace `path.first().copied()` with `path.front().copied()` | [x] |
+| 3.2.7 | player.rs | Replace `path.remove(0)` with `path.pop_front()` | [x] |
+| 3.2.8 | player.rs | Convert `find_path()` result to VecDeque at assignment | [x] |
+| 3.2.9 | input_handler.rs | Add VecDeque import, update `path.first()` → `path.front()` | [x] |
+| 3.2.10 | input_handler.rs | Replace `path.remove(0)` with `path.pop_front()` | [x] |
 
 ### 3.3 Pathfinding Cleanup — REFACTOR
 
 | # | File | Task | Status |
 |---|------|------|--------|
-| 3.3.1 | player.rs | Replace `.unwrap()` with `.expect("came_from missing predecessor")` (line 291) | [ ] |
+| 3.3.1 | player.rs | Replace `.unwrap()` with `.expect("came_from missing predecessor")` | [x] |
 
 ---
 
@@ -336,7 +336,7 @@ For each phase:
 |-------|-------------|------------|----------|--------|
 | 1 | Test Infrastructure & Constants | 12 | P0-P1 | [x] Complete |
 | 2 | Map Core (TDD) | 15 | P0-P1 | [x] Complete |
-| 3 | Pathfinding (TDD) | 17 | P0 | [ ] |
+| 3 | Pathfinding (TDD) | 17 | P0 | [x] Complete |
 | 4 | FOV System (TDD) | 12 | P1-P2 | [ ] |
 | 5 | TileIndex Optimization | 9 | P0 | [ ] |
 | 6 | Particle System | 9 | P1 | [ ] |
@@ -344,7 +344,7 @@ For each phase:
 | 8 | Integration & Property Tests | 16 | P1-P2 | [ ] |
 | 9 | Polish | 17 | P1-P3 | [ ] |
 | D | Deferred (FOV Spatial Grid) | 4 | P2 | [ ] |
-| **Total** | | **125** | | **27/125** |
+| **Total** | | **125** | | **44/125** |
 
 ---
 

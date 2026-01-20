@@ -1,5 +1,6 @@
 use bevy::prelude::*;
 use bevy_ecs_tilemap::prelude::*;
+use std::collections::VecDeque;
 
 use crate::components::{Player, MovementInput, MovementAnimation, Autoexplore, AutoMoveToStair, TileVisibilityState, TileVisibility, TileType, CurrentLevel, LevelMaps};
 use crate::constants::{HOP_ANIM_TIMER, AUTOEXPLORE_ANIM_TIMER};
@@ -290,7 +291,7 @@ pub fn handle_stair_interaction(
                     &tile_visibility_query,
                     &map,
                 ) {
-                    let path = find_path((player.x, player.y), nearest_stair, &map);
+                    let path = VecDeque::from(find_path((player.x, player.y), nearest_stair, &map));
                     if !path.is_empty() {
                         // Cancel any existing auto-movement
                         if autoexplore_opt.is_some() {
@@ -299,7 +300,7 @@ pub fn handle_stair_interaction(
                         if auto_move_opt.is_some() {
                             commands.entity(entity).remove::<AutoMoveToStair>();
                         }
-                        
+
                         println!("Auto-moving to discovered up stairwell at ({}, {})", nearest_stair.0, nearest_stair.1);
                         commands.entity(entity).insert(AutoMoveToStair::new(
                             nearest_stair,
@@ -340,7 +341,7 @@ pub fn handle_stair_interaction(
                     &tile_visibility_query,
                     &map,
                 ) {
-                    let path = find_path((player.x, player.y), nearest_stair, &map);
+                    let path = VecDeque::from(find_path((player.x, player.y), nearest_stair, &map));
                     if !path.is_empty() {
                         // Cancel any existing auto-movement
                         if autoexplore_opt.is_some() {
@@ -349,7 +350,7 @@ pub fn handle_stair_interaction(
                         if auto_move_opt.is_some() {
                             commands.entity(entity).remove::<AutoMoveToStair>();
                         }
-                        
+
                         println!("Auto-moving to discovered down stairwell at ({}, {})", nearest_stair.0, nearest_stair.1);
                         commands.entity(entity).insert(AutoMoveToStair::new(
                             nearest_stair,
@@ -513,7 +514,7 @@ pub fn run_auto_move_to_stair(
         }
 
         // Get next step in path
-        if let Some(next_pos) = auto_move.path.first().copied() {
+        if let Some(next_pos) = auto_move.path.front().copied() {
             // Check if we can move to next position
             if map.get(next_pos.0, next_pos.1) != TileType::Wall {
                 // Calculate animation positions
@@ -538,8 +539,8 @@ pub fn run_auto_move_to_stair(
                     timer: Timer::from_seconds(AUTOEXPLORE_ANIM_TIMER, TimerMode::Once),
                 });
 
-                // Remove this step from path
-                auto_move.path.remove(0);
+                // Remove this step from path (O(1) with VecDeque)
+                auto_move.path.pop_front();
             } else {
                 // Path blocked, cancel auto-move
                 println!("Path to stairwell blocked!");

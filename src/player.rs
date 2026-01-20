@@ -1,5 +1,6 @@
 use bevy::prelude::*;
 use bevy_ecs_tilemap::prelude::*;
+use std::collections::VecDeque;
 
 use crate::assets::GameAssets;
 use crate::components::*;
@@ -113,7 +114,7 @@ pub fn run_autoexplore(
             let unexplored = find_nearest_unexplored(&player, &tile_visibility_query, &map);
             if let Some(target) = unexplored {
                 autoexplore.target = Some(target);
-                autoexplore.path = find_path((player.x, player.y), target, &map);
+                autoexplore.path = VecDeque::from(find_path((player.x, player.y), target, &map));
                 autoexplore.active = true;
             } else {
                 // No more unexplored tiles - remove component
@@ -131,7 +132,7 @@ pub fn run_autoexplore(
         }
 
         // Get next step in path
-        if let Some(next_pos) = autoexplore.path.first().copied() {
+        if let Some(next_pos) = autoexplore.path.front().copied() {
             // Check if we can move to next position
             if map.get(next_pos.0, next_pos.1) != TileType::Wall {
                 // Calculate animation positions
@@ -156,8 +157,8 @@ pub fn run_autoexplore(
                     timer: Timer::from_seconds(AUTOEXPLORE_ANIM_TIMER, TimerMode::Once),
                 });
 
-                // Remove this step from path
-                autoexplore.path.remove(0);
+                // Remove this step from path (O(1) with VecDeque)
+                autoexplore.path.pop_front();
             } else {
                 // Path blocked, recalculate
                 autoexplore.path.clear();
@@ -265,7 +266,7 @@ pub fn find_path(start: (u32, u32), goal: (u32, u32), map: &GameMap) -> Vec<(u32
             let mut current = goal;
             while current != start {
                 path.push(current);
-                current = *came_from.get(&current).unwrap();
+                current = *came_from.get(&current).expect("came_from missing predecessor in path reconstruction");
             }
             path.reverse();
             return path;

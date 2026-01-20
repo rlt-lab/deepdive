@@ -453,13 +453,23 @@ pub fn debug_biome_cycling(
         regenerate_events.write(RegenerateMapEvent);
     }
 }
-// Helper function to find nearest discovered stairwell of a specific type
+/// Find nearest discovered stairwell of a specific type.
+///
+/// Uses O(1) visibility lookups via HashMap instead of linear query scans.
 fn find_nearest_discovered_stairwell(
     player: &Player,
     stair_type: TileType,
     tile_visibility_query: &Query<(&TilePos, &TileVisibilityState)>,
     map: &GameMap,
 ) -> Option<(u32, u32)> {
+    use std::collections::HashMap;
+
+    // Build visibility HashMap once for O(1) lookups (instead of O(n) per stair)
+    let visibility_map: HashMap<(u32, u32), TileVisibility> = tile_visibility_query
+        .iter()
+        .map(|(pos, state)| ((pos.x, pos.y), state.visibility))
+        .collect();
+
     let mut nearest_stair: Option<(u32, u32)> = None;
     let mut min_distance = f32::INFINITY;
 
@@ -471,15 +481,10 @@ fn find_nearest_discovered_stairwell(
                 continue;
             }
 
-            // Check if this stairwell has been discovered (Visible or Seen)
-            let mut is_discovered = false;
-            for (tile_pos, visibility_state) in tile_visibility_query.iter() {
-                if tile_pos.x == x && tile_pos.y == y {
-                    is_discovered = visibility_state.visibility == TileVisibility::Visible
-                        || visibility_state.visibility == TileVisibility::Seen;
-                    break;
-                }
-            }
+            // O(1) visibility lookup - check if stairwell has been discovered
+            let is_discovered = visibility_map
+                .get(&(x, y))
+                .map_or(false, |&v| v == TileVisibility::Visible || v == TileVisibility::Seen);
 
             if !is_discovered {
                 continue;

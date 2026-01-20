@@ -175,13 +175,21 @@ pub fn run_autoexplore(
 // AUTOEXPLORE HELPER FUNCTIONS (Public for input_handler)
 // ============================================================================
 
-/// Find nearest unexplored tile using breadth-first search
+/// Find nearest unexplored tile using breadth-first search.
+///
+/// Uses O(1) visibility lookups via HashMap instead of linear query scans.
 pub fn find_nearest_unexplored(
     player: &Player,
     tile_visibility_query: &Query<(&TilePos, &TileVisibilityState)>,
     map: &GameMap,
 ) -> Option<(u32, u32)> {
-    use std::collections::VecDeque;
+    use std::collections::{HashMap, VecDeque};
+
+    // Build visibility HashMap once for O(1) lookups (instead of O(n) per tile)
+    let visibility_map: HashMap<(u32, u32), TileVisibility> = tile_visibility_query
+        .iter()
+        .map(|(pos, state)| ((pos.x, pos.y), state.visibility))
+        .collect();
 
     let start = (player.x, player.y);
     let mut visited = vec![vec![false; map.height as usize]; map.width as usize];
@@ -190,14 +198,10 @@ pub fn find_nearest_unexplored(
     visited[start.0 as usize][start.1 as usize] = true;
 
     while let Some((x, y)) = queue.pop_front() {
-        // Check if this tile is unexplored (Unseen)
-        let mut is_unseen = true;
-        for (tile_pos, visibility_state) in tile_visibility_query.iter() {
-            if tile_pos.x == x && tile_pos.y == y {
-                is_unseen = visibility_state.visibility == TileVisibility::Unseen;
-                break;
-            }
-        }
+        // O(1) visibility lookup - tiles not in map are implicitly Unseen
+        let is_unseen = visibility_map
+            .get(&(x, y))
+            .map_or(true, |&v| v == TileVisibility::Unseen);
 
         if is_unseen && map.get(x, y) == TileType::Floor {
             return Some((x, y));
@@ -302,22 +306,29 @@ pub fn find_path(start: (u32, u32), goal: (u32, u32), map: &GameMap) -> Vec<(u32
     Vec::new() // No path found
 }
 
-/// Count unexplored tiles on the map
+/// Count unexplored tiles on the map.
+///
+/// Uses O(1) visibility lookups via HashMap instead of linear query scans.
 pub fn count_unexplored_tiles(
     tile_visibility_query: &Query<(&TilePos, &TileVisibilityState)>,
     map: &GameMap,
 ) -> usize {
+    use std::collections::HashMap;
+
+    // Build visibility HashMap once for O(1) lookups (instead of O(n) per tile)
+    let visibility_map: HashMap<(u32, u32), TileVisibility> = tile_visibility_query
+        .iter()
+        .map(|(pos, state)| ((pos.x, pos.y), state.visibility))
+        .collect();
+
     let mut count = 0;
     for x in 0..map.width {
         for y in 0..map.height {
             if map.get(x, y) == TileType::Floor {
-                let mut is_unseen = true;
-                for (tile_pos, visibility_state) in tile_visibility_query.iter() {
-                    if tile_pos.x == x && tile_pos.y == y {
-                        is_unseen = visibility_state.visibility == TileVisibility::Unseen;
-                        break;
-                    }
-                }
+                // O(1) visibility lookup - tiles not in map are implicitly Unseen
+                let is_unseen = visibility_map
+                    .get(&(x, y))
+                    .map_or(true, |&v| v == TileVisibility::Unseen);
                 if is_unseen {
                     count += 1;
                 }

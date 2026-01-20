@@ -1,7 +1,6 @@
 use bevy::prelude::*;
-use bevy_ecs_tilemap::prelude::*;
 
-use crate::components::{Player, CurrentLevel, TileType, MapTile, BiomeParticle, ParticleType, ParticleSpawner, ParticleSettings, WindState, GlobalRng};
+use crate::components::{Player, CurrentLevel, TileType, BiomeParticle, ParticleType, ParticleSpawner, ParticleSettings, WindState, GlobalRng};
 use crate::constants::TILE_SIZE;
 use crate::biome::BiomeType;
 use crate::states::GameState;
@@ -281,7 +280,6 @@ fn spawn_biome_particles(
     mut spawner: ResMut<ParticleSpawner>,
     settings: Res<ParticleSettings>,
     player_query: Query<&Transform, With<Player>>,
-    tile_query: Query<(&TilePos, &MapTile)>,
     existing_particles: Query<&BiomeParticle>,
     map: Res<GameMap>,
     mut rng: ResMut<GlobalRng>,
@@ -310,7 +308,7 @@ fn spawn_biome_particles(
         // Collect primary spawn positions across entire map
         let mut primary_positions = Vec::with_capacity(initial_primary);
         for _ in 0..initial_primary {
-            if let Some(spawn_pos) = find_map_spawn_position(&tile_query, &map, rng.as_mut()) {
+            if let Some(spawn_pos) = find_map_spawn_position(&map, rng.as_mut()) {
                 primary_positions.push(spawn_pos);
             }
         }
@@ -318,7 +316,7 @@ fn spawn_biome_particles(
         // Collect secondary spawn positions across entire map
         let mut secondary_positions = Vec::with_capacity(initial_secondary);
         for _ in 0..initial_secondary {
-            if let Some(spawn_pos) = find_map_spawn_position(&tile_query, &map, rng.as_mut()) {
+            if let Some(spawn_pos) = find_map_spawn_position(&map, rng.as_mut()) {
                 secondary_positions.push(spawn_pos);
             }
         }
@@ -346,7 +344,7 @@ fn spawn_biome_particles(
         // Collect spawn positions across entire map
         let mut spawn_positions = Vec::with_capacity(spawn_count);
         for _ in 0..spawn_count {
-            if let Some(spawn_pos) = find_map_spawn_position(&tile_query, &map, rng.as_mut()) {
+            if let Some(spawn_pos) = find_map_spawn_position(&map, rng.as_mut()) {
                 spawn_positions.push(spawn_pos);
             }
         }
@@ -360,16 +358,17 @@ fn spawn_biome_particles(
     if spawner.secondary_timer.just_finished() && secondary_count < spawner.config.secondary_max_particles {
         use rand::Rng;
         if rng.random::<f32>() < spawner.config.secondary_spawn_chance {
-            if let Some(spawn_pos) = find_map_spawn_position(&tile_query, &map, rng.as_mut()) {
+            if let Some(spawn_pos) = find_map_spawn_position(&map, rng.as_mut()) {
                 spawn_secondary_particle(&mut commands, spawn_pos, &spawner.config, rng.as_mut());
             }
         }
     }
 }
 
-// Spawn particles across extended area beyond map boundaries for consistent coverage
+/// Spawn particles across extended area beyond map boundaries for consistent coverage.
+///
+/// Uses O(1) GameMap lookups for tile type checks.
 fn find_map_spawn_position(
-    tile_query: &Query<(&TilePos, &MapTile)>,
     map: &GameMap,
     rng: &mut impl rand::Rng,
 ) -> Option<Vec2> {
@@ -387,7 +386,7 @@ fn find_map_spawn_position(
         // If on the map, check if it's a floor tile. If outside map, allow spawning
         if is_on_map {
             let spawn_tile_pos = Vec2::new(spawn_tile_x, spawn_tile_y);
-            if !is_suitable_for_particles_fast(spawn_tile_pos, tile_query) {
+            if !is_suitable_for_particles_fast(spawn_tile_pos, &map) {
                 continue; // Skip walls on the map
             }
         }
@@ -403,17 +402,17 @@ fn find_map_spawn_position(
     None
 }
 
-fn is_suitable_for_particles_fast(pos: Vec2, tile_query: &Query<(&TilePos, &MapTile)>) -> bool {
+/// Check if a position is suitable for particles using O(1) GameMap lookup.
+fn is_suitable_for_particles_fast(pos: Vec2, map: &GameMap) -> bool {
     let tile_x = pos.x as u32;
     let tile_y = pos.y as u32;
 
-    for (tile_pos, map_tile) in tile_query.iter() {
-        if tile_pos.x == tile_x && tile_pos.y == tile_y {
-            return map_tile.tile_type == TileType::Floor;
-        }
+    // O(1) lookup via GameMap instead of iterating ECS query
+    if tile_x < map.width && tile_y < map.height {
+        map.get(tile_x, tile_y) == TileType::Floor
+    } else {
+        true // Outside map bounds - allow particle
     }
-
-    true
 }
 
 fn spawn_primary_particle(commands: &mut Commands, spawn_pos: Vec2, config: &BiomeParticleConfig, rng: &mut impl rand::Rng) {
@@ -500,7 +499,7 @@ fn update_biome_particles(
     wind_state: Res<WindState>,
     mut particle_query: Query<(Entity, &mut BiomeParticle, &mut Transform, &mut Sprite)>,
     player_query: Query<&Transform, (With<Player>, Without<BiomeParticle>)>,
-    tile_query: Query<(&TilePos, &MapTile)>,
+    map: Res<GameMap>,
     mut rng: ResMut<GlobalRng>,
 ) {
     if !spawner.config.enabled {
@@ -531,7 +530,7 @@ fn update_biome_particles(
                 (transform.translation.y / TILE_SIZE).round(),
             );
             
-            if is_near_wall_fast(tile_pos, &tile_query) {
+            if is_near_wall_fast(tile_pos, &map) {
                 movement *= 0.5;
             }
         }
@@ -619,16 +618,17 @@ fn apply_movement_style(
     }
 }
 
-fn is_near_wall_fast(pos: Vec2, tile_query: &Query<(&TilePos, &MapTile)>) -> bool {
+/// Check if a position is near a wall using O(1) GameMap lookup.
+fn is_near_wall_fast(pos: Vec2, map: &GameMap) -> bool {
     let tile_x = pos.x as u32;
     let tile_y = pos.y as u32;
 
-    for (tile_pos, map_tile) in tile_query.iter() {
-        if tile_pos.x == tile_x && tile_pos.y == tile_y {
-            return map_tile.tile_type == TileType::Wall;
-        }
+    // O(1) lookup via GameMap instead of iterating ECS query
+    if tile_x < map.width && tile_y < map.height {
+        map.get(tile_x, tile_y) == TileType::Wall
+    } else {
+        false // Outside map bounds - no wall
     }
-    false
 }
 
 fn update_particle_visuals(

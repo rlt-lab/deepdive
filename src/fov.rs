@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 use bevy_ecs_tilemap::prelude::*;
 
-use crate::components::{Player, TileType, CurrentLevel, TileVisibility, TileVisibilityState, FovSettings};
+use crate::components::{Player, TileType, CurrentLevel, TileVisibility, TileVisibilityState, FovConfig, FovState, LosCache};
 use crate::map::GameMap;
 use crate::biome::BiomeType;
 
@@ -10,7 +10,9 @@ pub struct FovPlugin;
 impl Plugin for FovPlugin {
     fn build(&self, app: &mut App) {
         app
-            .init_resource::<FovSettings>()
+            .init_resource::<FovConfig>()
+            .init_resource::<FovState>()
+            .init_resource::<LosCache>()
             .add_systems(Update, (
                 detect_player_movement,
                 calculate_fov.run_if(should_recalculate_fov),
@@ -20,74 +22,79 @@ impl Plugin for FovPlugin {
     }
 }
 
-// System to detect when player has moved to trigger FOV recalculation
+/// System to detect when player has moved to trigger FOV recalculation.
 pub fn detect_player_movement(
     player_query: Query<&Player, Changed<Player>>,
-    mut fov_settings: ResMut<FovSettings>,
+    mut fov_state: ResMut<FovState>,
 ) {
     if let Ok(player) = player_query.single() {
         let current_pos = (player.x, player.y);
 
         // Only trigger recalculation if position actually changed
-        if fov_settings.last_player_pos != Some(current_pos) {
-            fov_settings.needs_recalculation = true;
+        if fov_state.last_player_pos != Some(current_pos) {
+            fov_state.needs_recalculation = true;
             // Note: last_player_pos is updated in calculate_fov after processing
         }
     }
 }
 
-// Condition function to check if FOV needs recalculation
+/// Condition function to check if FOV needs recalculation.
 pub fn should_recalculate_fov(
-    fov_settings: Res<FovSettings>,
+    fov_state: Res<FovState>,
     map: Option<Res<GameMap>>,
 ) -> bool {
     map.is_some() && (
-        fov_settings.needs_recalculation || 
-        (fov_settings.debug_reveal_all && !fov_settings.debug_mode_applied)
+        fov_state.needs_recalculation ||
+        (fov_state.debug_reveal_all && !fov_state.debug_mode_applied)
     )
 }
 
-// Simple FOV calculation using basic line-of-sight
+/// Simple FOV calculation using basic line-of-sight.
 pub fn calculate_fov(
     player_query: Query<&Player>,
     map: Res<GameMap>,
-    mut fov_settings: ResMut<FovSettings>,
+    fov_config: Res<FovConfig>,
+    mut fov_state: ResMut<FovState>,
+    mut los_cache: ResMut<LosCache>,
     mut tile_query: Query<(&TilePos, &mut TileVisibilityState)>,
 ) {
-    let Ok(player) = player_query.single() else { return; };
+    let Ok(player) = player_query.single() else {
+        debug!("calculate_fov: No player found, skipping FOV calculation");
+        return;
+    };
 
     // If debug mode is on, reveal all tiles (only once)
-    if fov_settings.debug_reveal_all {
-        if !fov_settings.debug_mode_applied {
+    if fov_state.debug_reveal_all {
+        if !fov_state.debug_mode_applied {
             for (_, mut visibility_state) in tile_query.iter_mut() {
                 visibility_state.visibility = TileVisibility::Visible;
             }
-            fov_settings.debug_mode_applied = true;
+            fov_state.debug_mode_applied = true;
         }
-        fov_settings.needs_recalculation = false;
-        fov_settings.last_player_pos = Some((player.x, player.y));
+        fov_state.needs_recalculation = false;
+        fov_state.last_player_pos = Some((player.x, player.y));
         return;
     }
 
     // Reset debug mode tracking when not in debug mode
-    if fov_settings.debug_mode_applied {
-        fov_settings.debug_mode_applied = false;
+    if fov_state.debug_mode_applied {
+        fov_state.debug_mode_applied = false;
     }
 
     let player_x = player.x as i32;
     let player_y = player.y as i32;
     let current_pos = (player.x, player.y);
-    let radius = fov_settings.radius as i32;
+    let radius = fov_config.radius as i32;
     let radius_squared = radius.pow(2);
 
     // Check if we can use incremental update (player moved, not initial/forced recalc)
-    let use_incremental = fov_settings.last_player_pos.is_some()
-        && fov_settings.last_player_pos != Some(current_pos);
+    let use_incremental = fov_state.last_player_pos.is_some()
+        && fov_state.last_player_pos != Some(current_pos);
 
     if use_incremental {
         // INCREMENTAL UPDATE: Only process tiles in union of old and new visible regions
-        let (old_x, old_y) = fov_settings.last_player_pos.unwrap();
-        fov_settings.dirty_tiles.clear();
+        let (old_x, old_y) = fov_state.last_player_pos.unwrap();
+        fov_state.dirty_tiles.clear();
 
         // Calculate bounding box of union region
         let min_x = (old_x as i32 - radius).max(0).min((player_x - radius).max(0));
@@ -112,7 +119,7 @@ pub fn calculate_fov(
 
             if distance_squared <= radius_squared {
                 // Check line of sight from player to tile (cached)
-                if has_line_of_sight_cached(&map, player_x, player_y, tile_x, tile_y, &mut fov_settings) {
+                if has_line_of_sight_cached(&map, player_x, player_y, tile_x, tile_y, &mut los_cache) {
                     visibility_state.visibility = TileVisibility::Visible;
                 } else {
                     // If tile was visible, make it seen; don't change unseen tiles
@@ -138,7 +145,7 @@ pub fn calculate_fov(
 
             if distance_squared <= radius_squared {
                 // Check line of sight from player to tile (cached)
-                if has_line_of_sight_cached(&map, player_x, player_y, tile_x, tile_y, &mut fov_settings) {
+                if has_line_of_sight_cached(&map, player_x, player_y, tile_x, tile_y, &mut los_cache) {
                     visibility_state.visibility = TileVisibility::Visible;
                 } else {
                     // If tile was visible, make it seen; don't change unseen tiles
@@ -156,18 +163,18 @@ pub fn calculate_fov(
     }
 
     // Update last player position and mark recalculation complete
-    fov_settings.last_player_pos = Some(current_pos);
-    fov_settings.needs_recalculation = false;
+    fov_state.last_player_pos = Some(current_pos);
+    fov_state.needs_recalculation = false;
 }
 
-// Cached line-of-sight check with symmetric caching (A→B = B→A)
+/// Cached line-of-sight check with symmetric caching (A→B = B→A).
 fn has_line_of_sight_cached(
     map: &GameMap,
     x0: i32,
     y0: i32,
     x1: i32,
     y1: i32,
-    fov_settings: &mut FovSettings,
+    los_cache: &mut LosCache,
 ) -> bool {
     // Create normalized cache key (smaller coords first for symmetry)
     let cache_key = if (x0, y0) < (x1, y1) {
@@ -177,23 +184,26 @@ fn has_line_of_sight_cached(
     };
 
     // Check cache first
-    if let Some(&result) = fov_settings.los_cache.get(&cache_key) {
-        fov_settings.cache_hits += 1;
+    if let Some(&result) = los_cache.cache.get(&cache_key) {
+        los_cache.hits += 1;
         return result;
     }
 
     // Cache miss - calculate LOS
-    fov_settings.cache_misses += 1;
+    los_cache.misses += 1;
     let result = has_line_of_sight(map, x0, y0, x1, y1);
 
     // Store in cache
-    fov_settings.los_cache.insert(cache_key, result);
+    los_cache.cache.insert(cache_key, result);
 
     result
 }
 
-// Simple line-of-sight check using Bresenham's line algorithm
-fn has_line_of_sight(map: &GameMap, x0: i32, y0: i32, x1: i32, y1: i32) -> bool {
+/// Simple line-of-sight check using Bresenham's line algorithm.
+///
+/// Returns true if there is a clear line of sight from (x0, y0) to (x1, y1).
+/// Walls block LOS except at the target position (you can see walls themselves).
+pub fn has_line_of_sight(map: &GameMap, x0: i32, y0: i32, x1: i32, y1: i32) -> bool {
     let mut x = x0;
     let mut y = y0;
 
@@ -238,7 +248,7 @@ pub fn update_tile_visibility(
 ) {
     // Get biome-specific color tint
     let biome_tint = get_biome_color_tint(current_level.biome);
-    
+
     for (mut tile_color, visibility_state) in tile_query.iter_mut() {
         match visibility_state.visibility {
             TileVisibility::Unseen => {
@@ -275,38 +285,40 @@ fn get_biome_color_tint(biome: BiomeType) -> Color {
 fn apply_color_tint(base_color: Color, tint: Color, intensity: f32) -> Color {
     let base = base_color.to_linear();
     let tint_linear = tint.to_linear();
-    
+
     // Blend base color with tint based on intensity
     let r = base.red * (1.0 - intensity + intensity * tint_linear.red);
     let g = base.green * (1.0 - intensity + intensity * tint_linear.green);
     let b = base.blue * (1.0 - intensity + intensity * tint_linear.blue);
-    
+
     Color::linear_rgb(r, g, b)
 }
 
+/// Handle FOV debug controls (keyboard input).
 pub fn handle_fov_debug_controls(
     keyboard_input: Res<ButtonInput<KeyCode>>,
-    mut fov_settings: ResMut<FovSettings>,
+    mut fov_state: ResMut<FovState>,
+    los_cache: Res<LosCache>,
 ) {
     if keyboard_input.just_pressed(KeyCode::KeyO) &&
        (keyboard_input.pressed(KeyCode::ShiftLeft) || keyboard_input.pressed(KeyCode::ShiftRight)) {
-        fov_settings.debug_reveal_all = !fov_settings.debug_reveal_all;
-        fov_settings.debug_mode_applied = false; // Reset flag to trigger recalculation
-        fov_settings.needs_recalculation = true;
-        println!("FOV debug reveal: {}", if fov_settings.debug_reveal_all { "ON" } else { "OFF" });
+        fov_state.debug_reveal_all = !fov_state.debug_reveal_all;
+        fov_state.debug_mode_applied = false; // Reset flag to trigger recalculation
+        fov_state.needs_recalculation = true;
+        println!("FOV debug reveal: {}", if fov_state.debug_reveal_all { "ON" } else { "OFF" });
     }
 
     // Show LOS cache statistics
     if keyboard_input.just_pressed(KeyCode::KeyL) &&
        (keyboard_input.pressed(KeyCode::ShiftLeft) || keyboard_input.pressed(KeyCode::ShiftRight)) {
-        let total = fov_settings.cache_hits + fov_settings.cache_misses;
+        let total = los_cache.hits + los_cache.misses;
         if total > 0 {
-            let hit_rate = fov_settings.cache_hits as f32 / total as f32 * 100.0;
+            let hit_rate = los_cache.hits as f32 / total as f32 * 100.0;
             println!("LOS Cache Stats:");
-            println!("  Cache size: {} entries", fov_settings.los_cache.len());
-            println!("  Hits: {}, Misses: {}", fov_settings.cache_hits, fov_settings.cache_misses);
+            println!("  Cache size: {} entries", los_cache.cache.len());
+            println!("  Hits: {}, Misses: {}", los_cache.hits, los_cache.misses);
             println!("  Hit rate: {:.1}%", hit_rate);
-            println!("  Memory usage: ~{} KB", fov_settings.los_cache.len() * std::mem::size_of::<((u32, u32, u32, u32), bool)>() / 1024);
+            println!("  Memory usage: ~{} KB", los_cache.cache.len() * std::mem::size_of::<((u32, u32, u32, u32), bool)>() / 1024);
         } else {
             println!("No LOS cache statistics available yet");
         }

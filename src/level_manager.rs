@@ -2,7 +2,7 @@ use bevy::prelude::*;
 use bevy_ecs_tilemap::prelude::*;
 use rand::Rng;
 
-use crate::assets::{GameAssets, SpriteDatabase, sprite_position_to_index};
+use crate::assets::{GameAssets, sprite_position_to_index};
 use crate::components::*;
 use crate::constants::{MAP_WIDTH, MAP_HEIGHT, TILE_SIZE};
 use crate::map::{GameMap, select_biome_asset};
@@ -19,9 +19,9 @@ impl Plugin for LevelManagerPlugin {
             .init_resource::<CurrentLevel>()
             .init_resource::<LevelMaps>()
             .add_systems(Update, (
-                handle_level_transitions,
-                handle_map_regeneration,
-            ).run_if(in_state(GameState::Playing)));
+                handle_level_transitions.run_if(in_state(GameState::Playing)),
+                handle_map_regeneration.run_if(in_state(GameState::Playing)),
+            ));
     }
 }
 
@@ -137,13 +137,13 @@ pub fn handle_level_transitions(
     mut current_level: ResMut<CurrentLevel>,
     mut level_maps: ResMut<LevelMaps>,
     assets: Res<GameAssets>,
-    _sprite_db: Res<SpriteDatabase>,
     mut player_query: Query<&mut Player>,
     tilemap_query: Query<Entity, With<TileStorage>>,
     tile_visibility_query: Query<Entity, With<TileVisibilityState>>,
     tile_pos_visibility_query: Query<(&TilePos, &TileVisibilityState)>,
     map: Option<Res<GameMap>>,
-    mut fov_settings: ResMut<FovSettings>,
+    mut fov_state: ResMut<FovState>,
+    mut los_cache: ResMut<LosCache>,
     mut tile_index: ResMut<TileIndex>,
     mut tile_pool: ResMut<TilePool>,
     mut ellipse_mask: ResMut<EllipseMask>,
@@ -225,15 +225,15 @@ pub fn handle_level_transitions(
         commands.insert_resource(map);
         
         // Trigger FOV recalculation for new level and invalidate LOS cache
-        fov_settings.needs_recalculation = true;
-        fov_settings.los_cache.clear();
-        if fov_settings.cache_hits > 0 || fov_settings.cache_misses > 0 {
-            let hit_rate = fov_settings.cache_hits as f32 / (fov_settings.cache_hits + fov_settings.cache_misses) as f32 * 100.0;
+        fov_state.needs_recalculation = true;
+        los_cache.cache.clear();
+        if los_cache.hits > 0 || los_cache.misses > 0 {
+            let hit_rate = los_cache.hits as f32 / (los_cache.hits + los_cache.misses) as f32 * 100.0;
             println!("LOS cache stats - Hits: {}, Misses: {}, Hit rate: {:.1}%",
-                    fov_settings.cache_hits, fov_settings.cache_misses, hit_rate);
+                    los_cache.hits, los_cache.misses, hit_rate);
         }
-        fov_settings.cache_hits = 0;
-        fov_settings.cache_misses = 0;
+        los_cache.hits = 0;
+        los_cache.misses = 0;
     }
 }
 
@@ -243,11 +243,11 @@ pub fn handle_map_regeneration(
     current_level: Res<CurrentLevel>,
     mut level_maps: ResMut<LevelMaps>,
     assets: Res<GameAssets>,
-    _sprite_db: Res<SpriteDatabase>,
     mut player_query: Query<&mut Player>,
     tilemap_query: Query<Entity, With<TileStorage>>,
     tile_visibility_query: Query<Entity, With<TileVisibilityState>>,
-    mut fov_settings: ResMut<FovSettings>,
+    mut fov_state: ResMut<FovState>,
+    mut los_cache: ResMut<LosCache>,
     mut tile_index: ResMut<TileIndex>,
     mut tile_pool: ResMut<TilePool>,
     mut ellipse_mask: ResMut<EllipseMask>,
@@ -308,14 +308,14 @@ pub fn handle_map_regeneration(
         commands.insert_resource(map);
 
         // Trigger FOV recalculation for regenerated map and invalidate LOS cache
-        fov_settings.needs_recalculation = true;
-        fov_settings.los_cache.clear();
-        if fov_settings.cache_hits > 0 || fov_settings.cache_misses > 0 {
-            let hit_rate = fov_settings.cache_hits as f32 / (fov_settings.cache_hits + fov_settings.cache_misses) as f32 * 100.0;
+        fov_state.needs_recalculation = true;
+        los_cache.cache.clear();
+        if los_cache.hits > 0 || los_cache.misses > 0 {
+            let hit_rate = los_cache.hits as f32 / (los_cache.hits + los_cache.misses) as f32 * 100.0;
             println!("LOS cache stats - Hits: {}, Misses: {}, Hit rate: {:.1}%",
-                    fov_settings.cache_hits, fov_settings.cache_misses, hit_rate);
+                    los_cache.hits, los_cache.misses, hit_rate);
         }
-        fov_settings.cache_hits = 0;
-        fov_settings.cache_misses = 0;
+        los_cache.hits = 0;
+        los_cache.misses = 0;
     }
 }

@@ -130,29 +130,29 @@ For each phase:
 
 | # | Test Category | Tests to Write | Status |
 |---|---------------|----------------|--------|
-| 4.1.1 | Line of sight | Clear LOS on empty map | [ ] |
-| 4.1.2 | LOS blocking | Wall blocks LOS | [ ] |
-| 4.1.3 | LOS symmetry | If A sees B, B sees A | [ ] |
-| 4.1.4 | FOV radius | Tiles within radius visible, outside not | [ ] |
-| 4.1.5 | Visibility states | Unseen → Visible transition | [ ] |
-| 4.1.6 | Visibility states | Visible → Seen transition when out of FOV | [ ] |
+| 4.1.1 | Line of sight | Clear LOS on empty map | [x] |
+| 4.1.2 | LOS blocking | Wall blocks LOS | [x] |
+| 4.1.3 | LOS symmetry | If A sees B, B sees A | [x] |
+| 4.1.4 | FOV radius | Tiles within radius visible, outside not | [x] |
+| 4.1.5 | Visibility states | Unseen → Visible transition | [x] |
+| 4.1.6 | Visibility states | Visible → Seen transition when out of FOV | [x] |
 
 ### 4.2 FOV Optimizations — GREEN
 
 | # | File | Task | Status |
 |---|------|------|--------|
-| 4.2.1 | fov.rs | Add `debug!()` log in early return (line 57) | [ ] |
+| 4.2.1 | fov.rs | Add `debug!()` log in early return (line 57) | [x] |
 
 ### 4.3 Decompose FovSettings (P2) — REFACTOR
 
 | # | File | Task | Status |
 |---|------|------|--------|
-| 4.3.1 | components.rs | Create `FovConfig { radius: u32 }` | [ ] |
-| 4.3.2 | components.rs | Create `FovState { debug_reveal_all, needs_recalculation, debug_mode_applied, last_player_pos, dirty_tiles }` | [ ] |
-| 4.3.3 | components.rs | Create `LosCache { cache: HashMap<...>, hits: usize, misses: usize }` | [ ] |
-| 4.3.4 | fov.rs | Update to use three separate resources | [ ] |
-| 4.3.5 | level_manager.rs | Update cache clearing to access `LosCache` | [ ] |
-| 4.3.6 | main.rs | Initialize all three FOV resources | [ ] |
+| 4.3.1 | components.rs | Create `FovConfig { radius: u32 }` | [x] |
+| 4.3.2 | components.rs | Create `FovState { debug_reveal_all, needs_recalculation, debug_mode_applied, last_player_pos, dirty_tiles }` | [x] |
+| 4.3.3 | components.rs | Create `LosCache { cache: HashMap<...>, hits: usize, misses: usize }` | [x] |
+| 4.3.4 | fov.rs | Update to use three separate resources | [x] |
+| 4.3.5 | level_manager.rs | Update cache clearing to access `LosCache` | [x] |
+| 4.3.6 | fov.rs | Initialize all three FOV resources in FovPlugin | [x] |
 
 ---
 
@@ -164,20 +164,20 @@ For each phase:
 
 | # | Test Category | Tests to Write | Status |
 |---|---------------|----------------|--------|
-| 5.1.1 | TileIndex lookup | O(1) lookup returns correct entity | [ ] |
-| 5.1.2 | find_nearest_unexplored | Returns closest unexplored tile | [ ] |
-| 5.1.3 | count_unexplored_tiles | Accurate count with various visibility states | [ ] |
+| 5.1.1 | TileIndex lookup | O(1) lookup returns correct entity | [x] |
+| 5.1.2 | find_nearest_unexplored | Returns closest unexplored tile | [x] |
+| 5.1.3 | count_unexplored_tiles | Accurate count with various visibility states | [x] |
 
 ### 5.2 Implement TileIndex Usage (P0) — GREEN
 
 | # | File | Function | Task | Status |
 |---|------|----------|------|--------|
-| 5.2.1 | player.rs | `find_nearest_unexplored()` | Add `tile_index: Res<TileIndex>`, use O(1) lookup | [ ] |
-| 5.2.2 | player.rs | `count_unexplored_tiles()` | Build HashMap from visibility, use O(1) lookups | [ ] |
-| 5.2.3 | input_handler.rs | `find_nearest_discovered_stairwell()` | Add TileIndex param, single-pass with O(1) lookups | [ ] |
-| 5.2.4 | particles.rs | `is_suitable_for_particles_fast()` | Add `tile_index: &TileIndex`, use `tile_index.tiles.get()` | [ ] |
-| 5.2.5 | particles.rs | `is_near_wall_fast()` | Add `tile_index: &TileIndex`, use O(1) lookup | [ ] |
-| 5.2.6 | particles.rs | Call sites | Pass tile_index at lines 396 and 532 | [ ] |
+| 5.2.1 | player.rs | `find_nearest_unexplored()` | Build visibility HashMap, use O(1) lookup | [x] |
+| 5.2.2 | player.rs | `count_unexplored_tiles()` | Build HashMap from visibility, use O(1) lookups | [x] |
+| 5.2.3 | input_handler.rs | `find_nearest_discovered_stairwell()` | Build visibility HashMap, use O(1) lookups | [x] |
+| 5.2.4 | particles.rs | `is_suitable_for_particles_fast()` | Use `GameMap.get()` for O(1) tile lookup | [x] |
+| 5.2.5 | particles.rs | `is_near_wall_fast()` | Use `GameMap.get()` for O(1) lookup | [x] |
+| 5.2.6 | particles.rs | Call sites | Updated to pass GameMap instead of tile_query | [x] |
 
 ---
 
@@ -337,14 +337,14 @@ For each phase:
 | 1 | Test Infrastructure & Constants | 12 | P0-P1 | [x] Complete |
 | 2 | Map Core (TDD) | 15 | P0-P1 | [x] Complete |
 | 3 | Pathfinding (TDD) | 17 | P0 | [x] Complete |
-| 4 | FOV System (TDD) | 12 | P1-P2 | [ ] |
-| 5 | TileIndex Optimization | 9 | P0 | [ ] |
+| 4 | FOV System (TDD) | 13 | P1-P2 | [x] Complete |
+| 5 | TileIndex Optimization | 9 | P0 | [x] Complete |
 | 6 | Particle System | 9 | P1 | [ ] |
 | 7 | Architecture Cleanup | 14 | P1-P3 | [ ] |
 | 8 | Integration & Property Tests | 16 | P1-P2 | [ ] |
 | 9 | Polish | 17 | P1-P3 | [ ] |
 | D | Deferred (FOV Spatial Grid) | 4 | P2 | [ ] |
-| **Total** | | **125** | | **44/125** |
+| **Total** | | **126** | | **66/126** |
 
 ---
 

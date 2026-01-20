@@ -279,16 +279,70 @@ pub struct LevelMaps {
     pub maps: std::collections::HashMap<u32, SavedMapData>,
 }
 
+/// FOV configuration - rarely changes during gameplay.
+#[derive(Resource)]
+pub struct FovConfig {
+    pub radius: u32,
+}
+
+impl Default for FovConfig {
+    fn default() -> Self {
+        Self {
+            radius: FOV_RADIUS,
+        }
+    }
+}
+
+/// FOV runtime state - changes frequently during gameplay.
+#[derive(Resource)]
+pub struct FovState {
+    pub debug_reveal_all: bool,
+    pub needs_recalculation: bool,
+    pub debug_mode_applied: bool,
+    pub last_player_pos: Option<(u32, u32)>,
+    pub dirty_tiles: std::collections::HashSet<(u32, u32)>,
+}
+
+impl Default for FovState {
+    fn default() -> Self {
+        Self {
+            debug_reveal_all: false,
+            needs_recalculation: true,
+            debug_mode_applied: false,
+            last_player_pos: None,
+            dirty_tiles: std::collections::HashSet::new(),
+        }
+    }
+}
+
+/// LOS (Line of Sight) cache for symmetric calculations.
+#[derive(Resource)]
+pub struct LosCache {
+    pub cache: std::collections::HashMap<(u32, u32, u32, u32), bool>,
+    pub hits: usize,
+    pub misses: usize,
+}
+
+impl Default for LosCache {
+    fn default() -> Self {
+        Self {
+            cache: std::collections::HashMap::new(),
+            hits: 0,
+            misses: 0,
+        }
+    }
+}
+
+/// Legacy FovSettings - re-exported for backwards compatibility.
+/// Prefer using FovConfig, FovState, and LosCache directly.
 #[derive(Resource)]
 pub struct FovSettings {
     pub radius: u32,
     pub debug_reveal_all: bool,
     pub needs_recalculation: bool,
     pub debug_mode_applied: bool,
-    // Dirty tracking for incremental FOV updates
     pub last_player_pos: Option<(u32, u32)>,
     pub dirty_tiles: std::collections::HashSet<(u32, u32)>,
-    // LOS caching for symmetric line-of-sight calculations
     pub los_cache: std::collections::HashMap<(u32, u32, u32, u32), bool>,
     pub cache_hits: usize,
     pub cache_misses: usize,

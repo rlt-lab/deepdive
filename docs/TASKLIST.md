@@ -189,20 +189,20 @@ For each phase:
 
 | # | Test Category | Tests to Write | Status |
 |---|---------------|----------------|--------|
-| 6.1.1 | Particle counts | ParticleCounts resource updated correctly | [ ] |
-| 6.1.2 | Spawn limits | Respects primary/secondary limits | [ ] |
+| 6.1.1 | Particle counts | ParticleCounts resource updated correctly | [x] |
+| 6.1.2 | Spawn limits | Respects primary/secondary limits | [x] |
 
 ### 6.2 Implement Particle Optimization (P1) — GREEN
 
 | # | File | Task | Status |
 |---|------|------|--------|
-| 6.2.1 | components.rs | Create `ParticleCounts { primary_count: usize, secondary_count: usize }` resource | [ ] |
-| 6.2.2 | particles.rs | Add `init_resource::<ParticleCounts>()` to plugin | [ ] |
-| 6.2.3 | particles.rs | Create `cache_particle_counts()` system | [ ] |
-| 6.2.4 | particles.rs | Replace double-iteration with `ParticleCounts` reads (lines 296-301) | [ ] |
-| 6.2.5 | particles.rs | Add `cache_particle_counts` to run before `spawn_biome_particles` | [ ] |
-| 6.2.6 | particles.rs | Stagger wall checks with per-particle offset (line 526) | [ ] |
-| 6.2.7 | particles.rs | Add `debug!()` before early return (line 292) | [ ] |
+| 6.2.1 | components.rs | Create `ParticleCounts { primary_count: usize, secondary_count: usize }` resource | [x] |
+| 6.2.2 | particles.rs | Add `init_resource::<ParticleCounts>()` to plugin | [x] |
+| 6.2.3 | particles.rs | Create `cache_particle_counts()` system | [x] |
+| 6.2.4 | particles.rs | Replace double-iteration with `ParticleCounts` reads (lines 296-301) | [x] |
+| 6.2.5 | particles.rs | Add `cache_particle_counts` to run before `spawn_biome_particles` | [x] |
+| 6.2.6 | particles.rs | Stagger wall checks with per-particle offset (line 526) | [x] |
+| 6.2.7 | particles.rs | Add `debug!()` before early return (line 292) | [x] |
 
 ---
 
@@ -339,12 +339,12 @@ For each phase:
 | 3 | Pathfinding (TDD) | 17 | P0 | [x] Complete |
 | 4 | FOV System (TDD) | 13 | P1-P2 | [x] Complete |
 | 5 | TileIndex Optimization | 9 | P0 | [x] Complete |
-| 6 | Particle System | 9 | P1 | [ ] |
+| 6 | Particle System | 9 | P1 | [x] Complete |
 | 7 | Architecture Cleanup | 14 | P1-P3 | [ ] |
 | 8 | Integration & Property Tests | 16 | P1-P2 | [ ] |
 | 9 | Polish | 17 | P1-P3 | [ ] |
 | D | Deferred (FOV Spatial Grid) | 4 | P2 | [ ] |
-| **Total** | | **126** | | **66/126** |
+| **Total** | | **126** | | **75/126** |
 
 ---
 

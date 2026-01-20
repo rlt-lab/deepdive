@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 
-use crate::components::{Player, CurrentLevel, TileType, BiomeParticle, ParticleType, ParticleSpawner, ParticleSettings, WindState, GlobalRng};
+use crate::components::{Player, CurrentLevel, TileType, BiomeParticle, ParticleType, ParticleSpawner, ParticleSettings, WindState, GlobalRng, ParticleCounts};
 use crate::constants::TILE_SIZE;
 use crate::biome::BiomeType;
 use crate::states::GameState;
@@ -228,9 +228,11 @@ impl Plugin for ParticlePlugin {
             .init_resource::<ParticleSpawner>()
             .init_resource::<ParticleSettings>()
             .init_resource::<WindState>()
+            .init_resource::<ParticleCounts>()
             .add_systems(Update, (
                 update_particle_spawner,
-                spawn_biome_particles,
+                cache_particle_counts,
+                spawn_biome_particles.after(cache_particle_counts),
                 update_biome_particles,
                 update_wind_system,
                 cleanup_particles,
@@ -275,12 +277,23 @@ fn update_particle_spawner(
     spawner.secondary_timer.tick(time.delta());
 }
 
+/// Cache particle counts in a single pass to avoid double-iteration in spawn_biome_particles.
+fn cache_particle_counts(
+    particles: Query<&BiomeParticle>,
+    mut counts: ResMut<ParticleCounts>,
+) {
+    counts.reset();
+    for particle in particles.iter() {
+        counts.increment(particle.particle_type());
+    }
+}
+
 fn spawn_biome_particles(
     mut commands: Commands,
     mut spawner: ResMut<ParticleSpawner>,
     settings: Res<ParticleSettings>,
     player_query: Query<&Transform, With<Player>>,
-    existing_particles: Query<&BiomeParticle>,
+    particle_counts: Res<ParticleCounts>,
     map: Res<GameMap>,
     mut rng: ResMut<GlobalRng>,
 ) {
@@ -289,16 +302,13 @@ fn spawn_biome_particles(
     }
 
     let Ok(_player_transform) = player_query.single() else {
+        debug!("spawn_biome_particles: No player found, skipping particle spawn");
         return;
     };
 
-    // Count existing particles
-    let primary_count = existing_particles.iter()
-        .filter(|p| p.particle_type() == ParticleType::Primary)
-        .count();
-    let secondary_count = existing_particles.iter()
-        .filter(|p| p.particle_type() == ParticleType::Secondary)
-        .count();
+    // Use cached particle counts (updated by cache_particle_counts system)
+    let primary_count = particle_counts.primary_count;
+    let secondary_count = particle_counts.secondary_count;
 
     // Initial spawn when entering a new biome
     if !spawner.initial_spawn_complete {
@@ -513,7 +523,7 @@ fn update_biome_particles(
     let delta = time.delta_secs();
     let current_time = time.elapsed_secs();
 
-    for (_entity, mut particle, mut transform, mut sprite) in particle_query.iter_mut() {
+    for (entity, mut particle, mut transform, mut sprite) in particle_query.iter_mut() {
         particle.lifetime.tick(time.delta());
         particle.glow_timer.tick(time.delta());
 
@@ -523,13 +533,16 @@ fn update_biome_particles(
         apply_movement_style(&mut movement, &spawner.config.movement_style, &particle,
                            current_time, delta, wind_state.strength, rng.as_mut());
 
-        // Simplified wall interaction
-        if (current_time * 4.0) as i32 % 10 == 0 {
+        // Staggered wall interaction: use entity index to distribute checks across frames
+        // instead of all particles checking on the same frame
+        let frame = (current_time * 4.0) as i32;
+        let entity_offset = entity.index() as i32;
+        if (frame + entity_offset) % 10 == 0 {
             let tile_pos = Vec2::new(
                 (transform.translation.x / TILE_SIZE).round(),
                 (transform.translation.y / TILE_SIZE).round(),
             );
-            
+
             if is_near_wall_fast(tile_pos, &map) {
                 movement *= 0.5;
             }

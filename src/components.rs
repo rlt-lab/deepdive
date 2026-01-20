@@ -398,6 +398,60 @@ impl Default for ParticleSettings {
     }
 }
 
+/// Cached particle counts to avoid double-iteration in spawn_biome_particles.
+/// Updated once per frame by cache_particle_counts system.
+#[derive(Resource, Default)]
+pub struct ParticleCounts {
+    pub primary_count: usize,
+    pub secondary_count: usize,
+}
+
+impl ParticleCounts {
+    /// Total number of particles.
+    #[inline]
+    pub fn total(&self) -> usize {
+        self.primary_count + self.secondary_count
+    }
+
+    /// Reset counts to zero.
+    pub fn reset(&mut self) {
+        self.primary_count = 0;
+        self.secondary_count = 0;
+    }
+
+    /// Increment count for a particle type.
+    pub fn increment(&mut self, particle_type: ParticleType) {
+        match particle_type {
+            ParticleType::Primary => self.primary_count += 1,
+            ParticleType::Secondary => self.secondary_count += 1,
+        }
+    }
+
+    /// Check if primary particle count has reached or exceeded the limit.
+    #[inline]
+    pub fn is_primary_at_limit(&self, max: usize) -> bool {
+        self.primary_count >= max
+    }
+
+    /// Check if secondary particle count has reached or exceeded the limit.
+    #[inline]
+    pub fn is_secondary_at_limit(&self, max: usize) -> bool {
+        self.secondary_count >= max
+    }
+
+    /// Calculate remaining space for primary particles.
+    #[inline]
+    pub fn primary_space_remaining(&self, max: usize) -> usize {
+        max.saturating_sub(self.primary_count)
+    }
+
+    /// Calculate remaining space for secondary particles.
+    #[inline]
+    pub fn secondary_space_remaining(&self, max: usize) -> usize {
+        max.saturating_sub(self.secondary_count)
+    }
+}
+
 // ============================================================================
 // SPATIAL INDEXING
 // ============================================================================

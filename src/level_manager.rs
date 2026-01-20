@@ -4,6 +4,7 @@ use rand::Rng;
 
 use crate::assets::{GameAssets, SpriteDatabase, sprite_position_to_index};
 use crate::components::*;
+use crate::constants::{MAP_WIDTH, MAP_HEIGHT, TILE_SIZE};
 use crate::map::{GameMap, select_biome_asset};
 use crate::input_handler::{LevelChangeEvent, RegenerateMapEvent, SpawnPosition};
 use crate::states::GameState;
@@ -94,7 +95,7 @@ fn spawn_map_tiles(
 
     println!("Tile spawning: {} reused from pool, {} newly spawned", reused_tiles, new_tiles);
 
-    let tile_size = TilemapTileSize { x: 32.0, y: 32.0 };
+    let tile_size = TilemapTileSize { x: TILE_SIZE, y: TILE_SIZE };
     let grid_size = tile_size.into();
     let map_type = TilemapType::default();
 
@@ -184,10 +185,10 @@ pub fn handle_level_transitions(
             let saved_visibility = saved_data.tile_visibility.clone();
             (GameMap::from_saved_data(saved_data), saved_visibility)
         } else {
-            let mut map = GameMap::new(80, 50);
+            let mut map = GameMap::new(MAP_WIDTH, MAP_HEIGHT);
             // Use biome-aware generation
             // Update ellipse mask for map dimensions
-            ellipse_mask.resize(80, 50);
+            ellipse_mask.resize(MAP_WIDTH, MAP_HEIGHT);
             map.generate_with_biome(current_level.biome, event.new_level, rng.as_mut(), &ellipse_mask);
             map.place_stairs(event.new_level, rng.as_mut());
             // Create new visibility data for new map (empty HashMap = all Unseen)
@@ -268,10 +269,10 @@ pub fn handle_map_regeneration(
         }
         
         // Generate new map
-        let mut map = GameMap::new(80, 50);
-        
+        let mut map = GameMap::new(MAP_WIDTH, MAP_HEIGHT);
+
         // Update ellipse mask for map dimensions
-        ellipse_mask.resize(80, 50);
+        ellipse_mask.resize(MAP_WIDTH, MAP_HEIGHT);
         
         // Use biome-aware generation
         map.generate_with_biome(current_level.biome, current_level.level, rng.as_mut(), &ellipse_mask);

@@ -6,6 +6,8 @@ use bevy::{
 use bevy_asset_loader::prelude::*;
 use bevy_ecs_tilemap::prelude::*;
 
+mod constants;
+use constants::{WINDOW_WIDTH, WINDOW_HEIGHT, MAP_WIDTH, MAP_HEIGHT, TILE_SIZE};
 mod components;
 mod states;
 mod assets;
@@ -47,7 +49,7 @@ fn main() {
         .add_plugins(DefaultPlugins.set(WindowPlugin {
             primary_window: Some(Window {
                 title: "Roguelike".into(),
-                resolution: WindowResolution::new(1400.0, 800.0),
+                resolution: WindowResolution::new(WINDOW_WIDTH, WINDOW_HEIGHT),
                 present_mode: PresentMode::Fifo, // Vsync
                 ..default()
             }),
@@ -65,7 +67,7 @@ fn main() {
         .init_resource::<TileIndex>()
         .init_resource::<TilePool>()
         .init_resource::<KeyBindings>()
-        .insert_resource(EllipseMask::new(80, 50)) // Pre-calculate ellipse boundary for 80x50 maps
+        .insert_resource(EllipseMask::new(MAP_WIDTH, MAP_HEIGHT))
         .insert_resource(GlobalRng::new())
         // Register component types for reflection
         .register_type::<Player>()
@@ -86,7 +88,7 @@ fn main() {
         // Cache player sprite configuration
         .insert_resource(PlayerSpriteConfig {
             sprite_rect: Rect::new(128.5, 128.5, 159.5, 159.5), // Player at (4,4) with 31x31 extract
-            custom_size: Vec2::new(32.0, 32.0),
+            custom_size: Vec2::new(TILE_SIZE, TILE_SIZE),
         })
         // Add player movement event
         .add_event::<PlayerMoveIntent>()

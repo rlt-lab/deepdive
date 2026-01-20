@@ -3,6 +3,7 @@ use bevy_ecs_tilemap::prelude::*;
 
 use crate::assets::GameAssets;
 use crate::components::*;
+use crate::constants::{TILE_SIZE, HOLD_TO_MOVE_TIMER, AUTOEXPLORE_ANIM_TIMER};
 use crate::map::GameMap;
 
 // ============================================================================
@@ -47,13 +48,13 @@ pub fn spawn_player(
     let grid_y = spawn_pos.1;
     
     // Convert grid position to world position with new map centering
-    let world_x = (grid_x as f32 - (map.width as f32 / 2.0 - 0.5)) * 32.0;
-    let world_y = (grid_y as f32 - (map.height as f32 / 2.0 - 0.5)) * 32.0;
+    let world_x = (grid_x as f32 - (map.width as f32 / 2.0 - 0.5)) * TILE_SIZE;
+    let world_y = (grid_y as f32 - (map.height as f32 / 2.0 - 0.5)) * TILE_SIZE;
 
     let player_entity = commands.spawn((
         Player { x: grid_x, y: grid_y },
         MovementInput {
-            move_timer: Timer::from_seconds(0.15, TimerMode::Once), // 150ms for hold-to-move
+            move_timer: Timer::from_seconds(HOLD_TO_MOVE_TIMER, TimerMode::Once),
             is_holding: false,
         },
         Sprite {
@@ -82,8 +83,8 @@ pub fn move_player(
     // This system should only run when there's no animation active
     for (player, mut transform) in player_query.iter_mut() {
         // Convert grid position to world position
-        let world_x = (player.x as f32 - (map.width as f32 / 2.0 - 0.5)) * 32.0;
-        let world_y = (player.y as f32 - (map.height as f32 / 2.0 - 0.5)) * 32.0;
+        let world_x = (player.x as f32 - (map.width as f32 / 2.0 - 0.5)) * TILE_SIZE;
+        let world_y = (player.y as f32 - (map.height as f32 / 2.0 - 0.5)) * TILE_SIZE;
         
         transform.translation.x = world_x;
         transform.translation.y = world_y;
@@ -156,10 +157,10 @@ pub fn run_autoexplore(
             // Check if we can move to next position
             if map.get(next_pos.0, next_pos.1) != TileType::Wall {
                 // Calculate animation positions
-                let start_world_x = (player.x as f32 - (map.width as f32 / 2.0 - 0.5)) * 32.0;
-                let start_world_y = (player.y as f32 - (map.height as f32 / 2.0 - 0.5)) * 32.0;
-                let end_world_x = (next_pos.0 as f32 - (map.width as f32 / 2.0 - 0.5)) * 32.0;
-                let end_world_y = (next_pos.1 as f32 - (map.height as f32 / 2.0 - 0.5)) * 32.0;
+                let start_world_x = (player.x as f32 - (map.width as f32 / 2.0 - 0.5)) * TILE_SIZE;
+                let start_world_y = (player.y as f32 - (map.height as f32 / 2.0 - 0.5)) * TILE_SIZE;
+                let end_world_x = (next_pos.0 as f32 - (map.width as f32 / 2.0 - 0.5)) * TILE_SIZE;
+                let end_world_y = (next_pos.1 as f32 - (map.height as f32 / 2.0 - 0.5)) * TILE_SIZE;
 
                 // Update sprite facing
                 if next_pos.0 < player.x {
@@ -176,7 +177,7 @@ pub fn run_autoexplore(
                 commands.entity(entity).insert(MovementAnimation {
                     start_pos: Vec3::new(start_world_x, start_world_y, 1.0),
                     end_pos: Vec3::new(end_world_x, end_world_y, 1.0),
-                    timer: Timer::from_seconds(0.05, TimerMode::Once), // 50ms animation - fast but visible
+                    timer: Timer::from_seconds(AUTOEXPLORE_ANIM_TIMER, TimerMode::Once),
                 });
 
                 // Remove this step from path

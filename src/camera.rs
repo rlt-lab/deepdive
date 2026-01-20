@@ -1,6 +1,7 @@
 use bevy::prelude::*;
 
 use crate::components::*;
+use crate::constants::{TILE_SIZE, CAMERA_PADDING, ZOOM_SPEED, ZOOM_MIN, ZOOM_MAX};
 use crate::map::GameMap;
 
 pub fn setup_camera(mut commands: Commands) {
@@ -38,17 +39,12 @@ pub fn camera_follow_system(
             let target_pos = player_transform.translation;
             
             // Calculate map bounds in world coordinates
-            let tile_size = 32.0;
-            let half_map_width = (map.width as f32 * tile_size) / 2.0;
-            let half_map_height = (map.height as f32 * tile_size) / 2.0;
-            
-            // For larger maps, add proper viewport-based constraints
-            // Extra space around map edges for comfortable viewing
-            let padding = 200.0; // Increased padding for larger maps
-            let min_x = -half_map_width - padding;
-            let max_x = half_map_width + padding;
-            let min_y = -half_map_height - padding;
-            let max_y = half_map_height + padding;
+            let half_map_width = (map.width as f32 * TILE_SIZE) / 2.0;
+            let half_map_height = (map.height as f32 * TILE_SIZE) / 2.0;
+            let min_x = -half_map_width - CAMERA_PADDING;
+            let max_x = half_map_width + CAMERA_PADDING;
+            let min_y = -half_map_height - CAMERA_PADDING;
+            let max_y = half_map_height + CAMERA_PADDING;
             
             // Apply constraints - only allow free camera movement for very small maps
             let constrained_x = if map.width <= 10 { 
@@ -79,10 +75,10 @@ pub fn camera_zoom_system(
     if let Ok((mut camera_transform, mut camera_follow)) = camera_query.single_mut() {
         // Handle zoom input
         if keyboard_input.just_pressed(KeyCode::Equal) || keyboard_input.just_pressed(KeyCode::NumpadAdd) {
-            camera_follow.target_zoom = (camera_follow.target_zoom * 1.2).min(3.0); // Zoom in, max 3x
+            camera_follow.target_zoom = (camera_follow.target_zoom * ZOOM_SPEED).min(ZOOM_MAX);
         }
         if keyboard_input.just_pressed(KeyCode::Minus) || keyboard_input.just_pressed(KeyCode::NumpadSubtract) {
-            camera_follow.target_zoom = (camera_follow.target_zoom / 1.2).max(0.5); // Zoom out, min 0.5x
+            camera_follow.target_zoom = (camera_follow.target_zoom / ZOOM_SPEED).max(ZOOM_MIN);
         }
         
         // Reset zoom with F3 key (R conflicts with regenerate map)

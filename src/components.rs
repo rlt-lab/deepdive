@@ -2,6 +2,7 @@ use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
 
 use crate::biome::BiomeType;
+use crate::constants::{FOV_RADIUS, MAX_TILE_POOL};
 
 // ============================================================================
 // TILE TYPES & MAP ENUMS
@@ -282,7 +283,7 @@ pub struct FovSettings {
 impl Default for FovSettings {
     fn default() -> Self {
         Self {
-            radius: 20, // 2.5x the original radius of 8
+            radius: FOV_RADIUS,
             debug_reveal_all: false,
             needs_recalculation: true,
             debug_mode_applied: false,
@@ -360,7 +361,7 @@ impl Default for TilePool {
     fn default() -> Self {
         Self {
             available: Vec::new(),
-            max_pool_size: 4000, // 80x50 map = 4000 tiles
+            max_pool_size: MAX_TILE_POOL,
         }
     }
 }

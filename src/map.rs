@@ -5,6 +5,7 @@ use std::collections::HashSet;
 
 use crate::assets::{GameAssets, SpriteDatabase, sprite_position_to_index};
 use crate::components::{TileType, MapTile, SavedMapData, CurrentLevel, LevelMaps, TileVisibilityState, TileVisibility, TileIndex, GlobalRng, EllipseMask};
+use crate::constants::{MAP_WIDTH, MAP_HEIGHT, TILE_SIZE};
 use crate::biome::{BiomeType, BiomeConfig};
 use crate::map_generation::{MapGenParams, get_generator};
 
@@ -425,10 +426,10 @@ pub fn spawn_map(
         GameMap::from_saved_data(saved_data)
     } else {
         // Generate new map
-        let mut map = GameMap::new(80, 50);
+        let mut map = GameMap::new(MAP_WIDTH, MAP_HEIGHT);
 
         // Update ellipse mask for map dimensions
-        ellipse_mask.resize(80, 50);
+        ellipse_mask.resize(MAP_WIDTH, MAP_HEIGHT);
 
         // Use biome-aware generation
         map.generate_with_biome(current_level.biome, current_level.level, rng.as_mut(), &ellipse_mask);
@@ -469,7 +470,7 @@ pub fn spawn_map(
         }
     }
     
-    let tile_size = TilemapTileSize { x: 32.0, y: 32.0 };
+    let tile_size = TilemapTileSize { x: TILE_SIZE, y: TILE_SIZE };
     let grid_size = tile_size.into();
     let map_type = TilemapType::default();
     

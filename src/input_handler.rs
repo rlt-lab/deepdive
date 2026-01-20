@@ -2,6 +2,7 @@ use bevy::prelude::*;
 use bevy_ecs_tilemap::prelude::*;
 
 use crate::components::{Player, MovementInput, MovementAnimation, Autoexplore, AutoMoveToStair, TileVisibilityState, TileVisibility, TileType, CurrentLevel, LevelMaps};
+use crate::constants::{TILE_SIZE, HOP_ANIM_TIMER, AUTOEXPLORE_ANIM_TIMER};
 use crate::map::GameMap;
 use crate::biome::BiomeType;
 use crate::level_manager::capture_tile_visibility;
@@ -219,10 +220,10 @@ pub fn handle_movement_input(
             // Check collision with walls and apply movement
             if movement_attempted && map.get(new_x, new_y) != crate::components::TileType::Wall {
                 // Calculate start and end positions for animation
-                let start_world_x = (player.x as f32 - (map.width as f32 / 2.0 - 0.5)) * 32.0;
-                let start_world_y = (player.y as f32 - (map.height as f32 / 2.0 - 0.5)) * 32.0;
-                let end_world_x = (new_x as f32 - (map.width as f32 / 2.0 - 0.5)) * 32.0;
-                let end_world_y = (new_y as f32 - (map.height as f32 / 2.0 - 0.5)) * 32.0;
+                let start_world_x = (player.x as f32 - (map.width as f32 / 2.0 - 0.5)) * TILE_SIZE;
+                let start_world_y = (player.y as f32 - (map.height as f32 / 2.0 - 0.5)) * TILE_SIZE;
+                let end_world_x = (new_x as f32 - (map.width as f32 / 2.0 - 0.5)) * TILE_SIZE;
+                let end_world_y = (new_y as f32 - (map.height as f32 / 2.0 - 0.5)) * TILE_SIZE;
 
                 // Update player grid position
                 player.x = new_x;
@@ -237,7 +238,7 @@ pub fn handle_movement_input(
                 commands.entity(entity).insert(MovementAnimation {
                     start_pos: Vec3::new(start_world_x, start_world_y, 1.0),
                     end_pos: Vec3::new(end_world_x, end_world_y, 1.0),
-                    timer: Timer::from_seconds(0.1, TimerMode::Once), // 100ms hop animation
+                    timer: Timer::from_seconds(HOP_ANIM_TIMER, TimerMode::Once),
                 });
 
                 println!("Player moved to ({}, {})", new_x, new_y);
@@ -518,10 +519,10 @@ pub fn run_auto_move_to_stair(
             // Check if we can move to next position
             if map.get(next_pos.0, next_pos.1) != TileType::Wall {
                 // Calculate animation positions
-                let start_world_x = (player.x as f32 - (map.width as f32 / 2.0 - 0.5)) * 32.0;
-                let start_world_y = (player.y as f32 - (map.height as f32 / 2.0 - 0.5)) * 32.0;
-                let end_world_x = (next_pos.0 as f32 - (map.width as f32 / 2.0 - 0.5)) * 32.0;
-                let end_world_y = (next_pos.1 as f32 - (map.height as f32 / 2.0 - 0.5)) * 32.0;
+                let start_world_x = (player.x as f32 - (map.width as f32 / 2.0 - 0.5)) * TILE_SIZE;
+                let start_world_y = (player.y as f32 - (map.height as f32 / 2.0 - 0.5)) * TILE_SIZE;
+                let end_world_x = (next_pos.0 as f32 - (map.width as f32 / 2.0 - 0.5)) * TILE_SIZE;
+                let end_world_y = (next_pos.1 as f32 - (map.height as f32 / 2.0 - 0.5)) * TILE_SIZE;
 
                 // Update sprite facing
                 if next_pos.0 < player.x {
@@ -538,7 +539,7 @@ pub fn run_auto_move_to_stair(
                 commands.entity(entity).insert(MovementAnimation {
                     start_pos: Vec3::new(start_world_x, start_world_y, 1.0),
                     end_pos: Vec3::new(end_world_x, end_world_y, 1.0),
-                    timer: Timer::from_seconds(0.05, TimerMode::Once), // Fast movement
+                    timer: Timer::from_seconds(AUTOEXPLORE_ANIM_TIMER, TimerMode::Once),
                 });
 
                 // Remove this step from path

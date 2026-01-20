@@ -2,6 +2,7 @@ use bevy::prelude::*;
 use bevy_ecs_tilemap::prelude::*;
 
 use crate::components::{Player, CurrentLevel, TileType, MapTile, BiomeParticle, ParticleType, ParticleSpawner, ParticleSettings, WindState, GlobalRng};
+use crate::constants::TILE_SIZE;
 use crate::biome::BiomeType;
 use crate::states::GameState;
 use crate::map::GameMap;
@@ -393,8 +394,9 @@ fn find_map_spawn_position(
         // If outside the map boundaries, we accept it (no tile check needed)
 
         // Convert tile coordinates to world coordinates
-        let world_x = (spawn_tile_x - (map.width as f32 / 2.0 - 0.5)) * 32.0 + rng.random_range(-16.0..16.0);
-        let world_y = (spawn_tile_y - (map.height as f32 / 2.0 - 0.5)) * 32.0 + rng.random_range(-16.0..16.0);
+        let half_tile = TILE_SIZE / 2.0;
+        let world_x = (spawn_tile_x - (map.width as f32 / 2.0 - 0.5)) * TILE_SIZE + rng.random_range(-half_tile..half_tile);
+        let world_y = (spawn_tile_y - (map.height as f32 / 2.0 - 0.5)) * TILE_SIZE + rng.random_range(-half_tile..half_tile);
         return Some(Vec2::new(world_x, world_y));
     }
 
@@ -525,8 +527,8 @@ fn update_biome_particles(
         // Simplified wall interaction
         if (current_time * 4.0) as i32 % 10 == 0 {
             let tile_pos = Vec2::new(
-                (transform.translation.x / 32.0).round(),
-                (transform.translation.y / 32.0).round(),
+                (transform.translation.x / TILE_SIZE).round(),
+                (transform.translation.y / TILE_SIZE).round(),
             );
             
             if is_near_wall_fast(tile_pos, &tile_query) {

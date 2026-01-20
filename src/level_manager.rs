@@ -284,33 +284,14 @@ pub fn handle_map_regeneration(
             // Find a suitable floor position near center
             let center_x = map.width / 2;
             let center_y = map.height / 2;
-            
+
             // Look for nearby floor tile
-            let mut spawn_pos = (center_x, center_y);
-            for radius in 0..10 {
-                for dx in -(radius as i32)..=(radius as i32) {
-                    for dy in -(radius as i32)..=(radius as i32) {
-                        let x = center_x as i32 + dx;
-                        let y = center_y as i32 + dy;
-                        
-                        if x >= 0 && x < map.width as i32 && y >= 0 && y < map.height as i32 {
-                            let ux = x as u32;
-                            let uy = y as u32;
-                            if map.get(ux, uy) == TileType::Floor {
-                                spawn_pos = (ux, uy);
-                                break;
-                            }
-                        }
-                    }
-                }
-                if map.get(spawn_pos.0, spawn_pos.1) == TileType::Floor {
-                    break;
-                }
-            }
-            
+            let spawn_pos = map.find_nearby_floor(center_x, center_y, 10)
+                .unwrap_or((center_x, center_y));
+
             player.x = spawn_pos.0;
             player.y = spawn_pos.1;
-            
+
             println!("Player repositioned at ({}, {})", player.x, player.y);
         }
         

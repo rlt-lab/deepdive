@@ -3,7 +3,7 @@ use bevy_ecs_tilemap::prelude::*;
 
 use crate::assets::GameAssets;
 use crate::components::*;
-use crate::constants::{TILE_SIZE, HOLD_TO_MOVE_TIMER, AUTOEXPLORE_ANIM_TIMER};
+use crate::constants::{HOLD_TO_MOVE_TIMER, AUTOEXPLORE_ANIM_TIMER};
 use crate::map::GameMap;
 
 // ============================================================================
@@ -19,37 +19,16 @@ pub fn spawn_player(
     // Find a suitable spawn position (preferably near center)
     let center_x = map.width / 2;
     let center_y = map.height / 2;
-    
-    // Look for a floor tile near the center
-    let mut spawn_pos = (center_x, center_y);
-    
-    // If center is not a floor, search nearby
-    if map.get(center_x, center_y) != TileType::Floor {
-        'search: for radius in 1..10 {
-            for dx in -(radius as i32)..=(radius as i32) {
-                for dy in -(radius as i32)..=(radius as i32) {
-                    let x = center_x as i32 + dx;
-                    let y = center_y as i32 + dy;
 
-                    if x >= 0 && x < map.width as i32 && y >= 0 && y < map.height as i32 {
-                        let ux = x as u32;
-                        let uy = y as u32;
-                        if map.get(ux, uy) == TileType::Floor {
-                            spawn_pos = (ux, uy);
-                            break 'search;
-                        }
-                    }
-                }
-            }
-        }
-    }
-    
+    // Look for a floor tile near the center
+    let spawn_pos = map.find_nearby_floor(center_x, center_y, 10)
+        .unwrap_or((center_x, center_y));
+
     let grid_x = spawn_pos.0;
     let grid_y = spawn_pos.1;
-    
-    // Convert grid position to world position with new map centering
-    let world_x = (grid_x as f32 - (map.width as f32 / 2.0 - 0.5)) * TILE_SIZE;
-    let world_y = (grid_y as f32 - (map.height as f32 / 2.0 - 0.5)) * TILE_SIZE;
+
+    // Convert grid position to world position
+    let world_pos = map.grid_to_world(grid_x, grid_y);
 
     let player_entity = commands.spawn((
         Player { x: grid_x, y: grid_y },
@@ -64,7 +43,7 @@ pub fn spawn_player(
             custom_size: Some(sprite_config.custom_size),
             ..default()
         },
-        Transform::from_xyz(world_x, world_y, 1.0),
+        Transform::from_xyz(world_pos.x, world_pos.y, 1.0),
     )).id();
     
     // Store player entity for camera targeting
@@ -83,11 +62,10 @@ pub fn move_player(
     // This system should only run when there's no animation active
     for (player, mut transform) in player_query.iter_mut() {
         // Convert grid position to world position
-        let world_x = (player.x as f32 - (map.width as f32 / 2.0 - 0.5)) * TILE_SIZE;
-        let world_y = (player.y as f32 - (map.height as f32 / 2.0 - 0.5)) * TILE_SIZE;
-        
-        transform.translation.x = world_x;
-        transform.translation.y = world_y;
+        let world_pos = map.grid_to_world(player.x, player.y);
+
+        transform.translation.x = world_pos.x;
+        transform.translation.y = world_pos.y;
         transform.translation.z = 1.0; // Ensure consistent Z position
     }
 }
@@ -157,10 +135,8 @@ pub fn run_autoexplore(
             // Check if we can move to next position
             if map.get(next_pos.0, next_pos.1) != TileType::Wall {
                 // Calculate animation positions
-                let start_world_x = (player.x as f32 - (map.width as f32 / 2.0 - 0.5)) * TILE_SIZE;
-                let start_world_y = (player.y as f32 - (map.height as f32 / 2.0 - 0.5)) * TILE_SIZE;
-                let end_world_x = (next_pos.0 as f32 - (map.width as f32 / 2.0 - 0.5)) * TILE_SIZE;
-                let end_world_y = (next_pos.1 as f32 - (map.height as f32 / 2.0 - 0.5)) * TILE_SIZE;
+                let start_world = map.grid_to_world(player.x, player.y);
+                let end_world = map.grid_to_world(next_pos.0, next_pos.1);
 
                 // Update sprite facing
                 if next_pos.0 < player.x {
@@ -175,8 +151,8 @@ pub fn run_autoexplore(
 
                 // Add fast animation for autoexplore
                 commands.entity(entity).insert(MovementAnimation {
-                    start_pos: Vec3::new(start_world_x, start_world_y, 1.0),
-                    end_pos: Vec3::new(end_world_x, end_world_y, 1.0),
+                    start_pos: Vec3::new(start_world.x, start_world.y, 1.0),
+                    end_pos: Vec3::new(end_world.x, end_world.y, 1.0),
                     timer: Timer::from_seconds(AUTOEXPLORE_ANIM_TIMER, TimerMode::Once),
                 });
 

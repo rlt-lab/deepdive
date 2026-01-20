@@ -96,7 +96,7 @@ impl GameMap {
                 .enumerate()
                 .max_by_key(|(_, group)| group.len())
                 .map(|(idx, _)| idx)
-                .unwrap();
+                .expect("groups is non-empty when len > 1");
             
             let largest_group = &groups[largest_group_idx];
             
@@ -209,6 +209,7 @@ impl GameMap {
         let floor_positions: Vec<(u32, u32)> = self.get_floor_positions();
 
         if floor_positions.is_empty() {
+            warn!("place_stairs: No floor positions available, cannot place stairs");
             return;
         }
 
@@ -247,7 +248,8 @@ impl GameMap {
         }
     }
 
-    fn get_floor_positions(&self) -> Vec<(u32, u32)> {
+    /// Returns all floor tile positions in the map.
+    pub fn get_floor_positions(&self) -> Vec<(u32, u32)> {
         let mut positions = Vec::new();
         for y in 0..self.height {
             for x in 0..self.width {
@@ -258,7 +260,54 @@ impl GameMap {
         }
         positions
     }
-    
+
+    /// Converts grid coordinates to world position.
+    ///
+    /// The conversion centers the map at the world origin and scales by TILE_SIZE.
+    #[inline]
+    pub fn grid_to_world(&self, x: u32, y: u32) -> bevy::math::Vec2 {
+        let world_x = (x as f32 - (self.width as f32 / 2.0 - 0.5)) * TILE_SIZE;
+        let world_y = (y as f32 - (self.height as f32 / 2.0 - 0.5)) * TILE_SIZE;
+        bevy::math::Vec2::new(world_x, world_y)
+    }
+
+    /// Finds the nearest floor tile within a given radius of the center position.
+    ///
+    /// Returns the center position if it's already a floor tile.
+    /// Searches outward in concentric squares until a floor is found or max_radius is exceeded.
+    pub fn find_nearby_floor(&self, center_x: u32, center_y: u32, max_radius: u32) -> Option<(u32, u32)> {
+        // If center is already a floor, return it
+        if self.get(center_x, center_y) == TileType::Floor {
+            return Some((center_x, center_y));
+        }
+
+        // Search outward in concentric squares
+        for radius in 1..=max_radius {
+            for dy in -(radius as i32)..=(radius as i32) {
+                for dx in -(radius as i32)..=(radius as i32) {
+                    // Only check tiles at the current radius (on the perimeter)
+                    if dx.abs() != radius as i32 && dy.abs() != radius as i32 {
+                        continue;
+                    }
+
+                    let x = center_x as i32 + dx;
+                    let y = center_y as i32 + dy;
+
+                    // Check bounds
+                    if x >= 0 && x < self.width as i32 && y >= 0 && y < self.height as i32 {
+                        let ux = x as u32;
+                        let uy = y as u32;
+                        if self.get(ux, uy) == TileType::Floor {
+                            return Some((ux, uy));
+                        }
+                    }
+                }
+            }
+        }
+
+        None
+    }
+
     pub fn from_saved_data(saved: &SavedMapData) -> Self {
         let mut map = GameMap::new(saved.width, saved.height);
         map.tiles = saved.tiles.clone();
@@ -288,32 +337,7 @@ impl GameMap {
     }
 }
 
-// Helper function to get the correct tile texture index based on tile type and context
-pub fn get_tile_texture_index(tile_type: TileType, map: &GameMap, x: u32, y: u32, sprite_db: &SpriteDatabase, rng: &mut impl Rng) -> u32 {
-    match tile_type {
-        TileType::Floor => {
-            // Get a random floor sprite from the floors category
-            sprite_db.get_random_sprite_from_category("floors", rng)
-                .unwrap_or(sprite_position_to_index(1, 6)) // fallback to floor_stone1
-        },
-        TileType::Wall => {
-            if map.has_wall_below(x, y) {
-                // Use wall_top sprites
-                sprite_db.get_random_sprite_from_category("wall_top", rng)
-                    .unwrap_or(sprite_position_to_index(0, 0)) // fallback to dirt_wall_top
-            } else {
-                // Use wall_side sprites  
-                sprite_db.get_random_sprite_from_category("wall_side", rng)
-                    .unwrap_or(sprite_position_to_index(1, 0)) // fallback to dirt_wall_side
-            }
-        },
-        TileType::StairUp => sprite_position_to_index(8, 16), // stair_up at 8,16
-        TileType::StairDown => sprite_position_to_index(7, 16), // stair_down at 7,16
-        _ => sprite_position_to_index(0, 6), // Default to blank_floor_dark_grey
-    }
-}
-
-// Add biome asset selection function with context-aware wall selection
+// Biome asset selection function with context-aware wall selection
 pub fn select_biome_asset(biome_config: &BiomeConfig, tile_type: TileType, map: &GameMap, x: u32, y: u32, rng: &mut impl Rng) -> (u32, u32) {
     match tile_type {
         TileType::Floor => {

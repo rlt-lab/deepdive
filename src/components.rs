@@ -17,6 +17,17 @@ pub enum TileType {
     StairDown,
 }
 
+impl TileType {
+    /// Returns true if an entity can walk on this tile type.
+    ///
+    /// Walkable tiles: Floor, StairUp, StairDown
+    /// Non-walkable tiles: Wall, Water
+    #[inline]
+    pub fn is_walkable(self) -> bool {
+        matches!(self, TileType::Floor | TileType::StairUp | TileType::StairDown)
+    }
+}
+
 // ============================================================================
 // PLAYER COMPONENTS
 // ============================================================================

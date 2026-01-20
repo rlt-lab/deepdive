@@ -56,31 +56,31 @@ For each phase:
 
 | # | Test Category | Tests to Write | Status |
 |---|---------------|----------------|--------|
-| 2.1.1 | Index calculation | `idx()` - valid coords, edge cases (0,0), boundary (79,49), out of bounds | [ ] |
-| 2.1.2 | Tile operations | `get()`, `set()` - round-trip correctness for all TileType variants | [ ] |
-| 2.1.3 | Walkability | `is_walkable()` - Floor=true, Wall=false, Water=false, stairs=true | [ ] |
-| 2.1.4 | Floor positions | `get_floor_positions()` - returns all and only floor tiles | [ ] |
-| 2.1.5 | Grid-to-world | Test `grid_to_world()` conversion (will fail until 2.2.1) | [ ] |
-| 2.1.6 | Find nearby floor | Test `find_nearby_floor()` radial search (will fail until 2.2.4) | [ ] |
+| 2.1.1 | Index calculation | `idx()` - valid coords, edge cases (0,0), boundary (79,49), out of bounds | [x] |
+| 2.1.2 | Tile operations | `get()`, `set()` - round-trip correctness for all TileType variants | [x] |
+| 2.1.3 | Walkability | `is_walkable()` - Floor=true, Wall=false, Water=false, stairs=true | [x] |
+| 2.1.4 | Floor positions | `get_floor_positions()` - returns all and only floor tiles | [x] |
+| 2.1.5 | Grid-to-world | Test `grid_to_world()` conversion (will fail until 2.2.1) | [x] |
+| 2.1.6 | Find nearby floor | Test `find_nearby_floor()` radial search (will fail until 2.2.4) | [x] |
 
 ### 2.2 Implement Map Helpers — GREEN
 
 | # | File | Task | Status |
 |---|------|------|--------|
-| 2.2.1 | map.rs | Add `impl GameMap { pub fn grid_to_world(&self, x: u32, y: u32) -> Vec2 }` | [ ] |
-| 2.2.2 | player.rs | Replace inline grid-to-world at lines 50-51, 85-86, 159-162 | [ ] |
-| 2.2.3 | input_handler.rs | Replace inline grid-to-world at lines 222-225, 521-524 | [ ] |
-| 2.2.4 | map.rs | Add `pub fn find_nearby_floor(&self, center_x: u32, center_y: u32, max_radius: u32) -> Option<(u32, u32)>` | [ ] |
-| 2.2.5 | player.rs | Replace spawn search (lines 26-44) with `map.find_nearby_floor()` | [ ] |
-| 2.2.6 | level_manager.rs | Replace spawn search (lines 288-308) with `map.find_nearby_floor()` | [ ] |
+| 2.2.1 | map.rs | Add `impl GameMap { pub fn grid_to_world(&self, x: u32, y: u32) -> Vec2 }` | [x] |
+| 2.2.2 | player.rs | Replace inline grid-to-world at lines 50-51, 85-86, 159-162 | [x] |
+| 2.2.3 | input_handler.rs | Replace inline grid-to-world at lines 222-225, 521-524 | [x] |
+| 2.2.4 | map.rs | Add `pub fn find_nearby_floor(&self, center_x: u32, center_y: u32, max_radius: u32) -> Option<(u32, u32)>` | [x] |
+| 2.2.5 | player.rs | Replace spawn search (lines 26-44) with `map.find_nearby_floor()` | [x] |
+| 2.2.6 | level_manager.rs | Replace spawn search (lines 288-308) with `map.find_nearby_floor()` | [x] |
 
 ### 2.3 Map Cleanup — REFACTOR
 
 | # | File | Task | Status |
 |---|------|------|--------|
-| 2.3.1 | map.rs | Delete unused `get_tile_texture_index()` function (lines 291-313) | [ ] |
-| 2.3.2 | map.rs | Add `.expect()` message to line 96-98 unwrap | [ ] |
-| 2.3.3 | map.rs | Add `warn!()` before early return in `place_stairs()` line 208 | [ ] |
+| 2.3.1 | map.rs | Delete unused `get_tile_texture_index()` function (lines 291-313) | [x] |
+| 2.3.2 | map.rs | Add `.expect()` message to line 96-98 unwrap | [x] |
+| 2.3.3 | map.rs | Add `warn!()` before early return in `place_stairs()` line 208 | [x] |
 
 ---
 
@@ -335,7 +335,7 @@ For each phase:
 | Phase | Description | Task Count | Priority | Status |
 |-------|-------------|------------|----------|--------|
 | 1 | Test Infrastructure & Constants | 12 | P0-P1 | [x] Complete |
-| 2 | Map Core (TDD) | 15 | P0-P1 | [ ] |
+| 2 | Map Core (TDD) | 15 | P0-P1 | [x] Complete |
 | 3 | Pathfinding (TDD) | 17 | P0 | [ ] |
 | 4 | FOV System (TDD) | 12 | P1-P2 | [ ] |
 | 5 | TileIndex Optimization | 9 | P0 | [ ] |
@@ -344,7 +344,7 @@ For each phase:
 | 8 | Integration & Property Tests | 16 | P1-P2 | [ ] |
 | 9 | Polish | 17 | P1-P3 | [ ] |
 | D | Deferred (FOV Spatial Grid) | 4 | P2 | [ ] |
-| **Total** | | **125** | | **12/125** |
+| **Total** | | **125** | | **27/125** |
 
 ---
 

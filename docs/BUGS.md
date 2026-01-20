@@ -22,6 +22,26 @@ Likely related to mapgen logic timing - tiles may be rendered before generation 
 
 ---
 
+### BUG-002: Map generation not reproducible with same seed
+**Reported:** 2026-01-19
+**Priority:** Low
+**Status:** Open
+
+**Description:**
+Map generation produces different results even with the same RNG seed. This prevents save/load from regenerating identical maps and makes debugging harder.
+
+**Suspected cause:**
+`CompactOrganicGenerator::generate_organic_boundary()` in `src/map_generation_compact.rs` uses `HashSet` iteration (lines 51, 81) which has non-deterministic ordering in Rust.
+
+**Fix:**
+Replace `HashSet` with `BTreeSet` or sort the iterator output before processing.
+
+**Related tests:**
+- `tests/map_generation_tests.rs::map_generation_same_seed_identical_output` (ignored)
+- `tests/map_generation_tests.rs::map_generation_reproducibility_all_biomes` (ignored)
+
+---
+
 ## Closed Bugs
 
 (None yet)

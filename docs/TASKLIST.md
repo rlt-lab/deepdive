@@ -270,10 +270,10 @@ For each phase:
 
 | # | Test Category | Tests to Write | Status |
 |---|---------------|----------------|--------|
-| 8.3.1 | Dimensions | Output matches MAP_WIDTH × MAP_HEIGHT | [ ] |
-| 8.3.2 | Tile validity | All tiles are valid TileType variants | [ ] |
-| 8.3.3 | Connectivity | All floor tiles reachable from spawn | [ ] |
-| 8.3.4 | Reproducibility | Same seed produces identical map | [ ] |
+| 8.3.1 | Dimensions | Output matches MAP_WIDTH × MAP_HEIGHT | [x] |
+| 8.3.2 | Tile validity | All tiles are valid TileType variants | [x] |
+| 8.3.3 | Connectivity | All floor tiles reachable from spawn | [x] |
+| 8.3.4 | Reproducibility | Same seed produces identical map | [x] (ignored, BUG-002) |
 
 ---
 
@@ -344,7 +344,7 @@ For each phase:
 | 8 | Integration & Property Tests | 16 | P1-P2 | [ ] |
 | 9 | Polish | 17 | P1-P3 | [ ] |
 | D | Deferred (FOV Spatial Grid) | 4 | P2 | [ ] |
-| **Total** | | **126** | | **89/126** |
+| **Total** | | **126** | | **93/126** |
 
 ---
 

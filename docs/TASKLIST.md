@@ -249,11 +249,11 @@ For each phase:
 
 | # | File | Test Scenarios | Status |
 |---|------|----------------|--------|
-| 8.1.1 | `tests/level_transitions.rs` | Map preservation across level changes | [ ] |
-| 8.1.2 | `tests/level_transitions.rs` | Stair positioning correct after transition | [ ] |
-| 8.1.3 | `tests/autoexplore.rs` | Complete map exploration terminates | [ ] |
-| 8.1.4 | `tests/autoexplore.rs` | Path validity during exploration | [ ] |
-| 8.1.5 | `tests/fov_movement.rs` | Visibility updates on player movement | [ ] |
+| 8.1.1 | `tests/level_transitions.rs` | Map preservation across level changes | [x] |
+| 8.1.2 | `tests/level_transitions.rs` | Stair positioning correct after transition | [x] |
+| 8.1.3 | `tests/autoexplore.rs` | Complete map exploration terminates | [x] |
+| 8.1.4 | `tests/autoexplore.rs` | Path validity during exploration | [x] |
+| 8.1.5 | `tests/fov_movement.rs` | Visibility updates on player movement | [x] |
 
 ### 8.2 Property-Based Tests (P2)
 
@@ -344,7 +344,7 @@ For each phase:
 | 8 | Integration & Property Tests | 16 | P1-P2 | [ ] |
 | 9 | Polish | 17 | P1-P3 | [ ] |
 | D | Deferred (FOV Spatial Grid) | 4 | P2 | [ ] |
-| **Total** | | **126** | | **93/126** |
+| **Total** | | **126** | | **98/126** |
 
 ---
 
